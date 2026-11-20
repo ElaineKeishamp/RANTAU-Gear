@@ -7,6 +7,6 @@
     <StartupObject>RantauGearChecks.Checks</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../tesproyek/tesproyek.vbproj" />
+    <ProjectReference Include="../RANTAUGear/RANTAUGear.vbproj" />
   </ItemGroup>
 </Project>

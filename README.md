@@ -4,10 +4,10 @@ Aplikasi desktop VB.NET Windows Forms untuk penyewaan alat outdoor dan dokumenta
 
 ## Menjalankan proyek
 
-Buka `tesproyek.slnx` di Visual Studio dengan dukungan .NET 10 dan Windows Forms, lalu jalankan proyek `tesproyek`. Alternatif dari folder ini:
+Buka `RANTAUGear.slnx` di Visual Studio dengan dukungan .NET 10 dan Windows Forms, lalu jalankan proyek `RANTAUGear`. Alternatif dari folder ini:
 
 ```powershell
-dotnet run --project tesproyek/tesproyek.vbproj
+dotnet run --project RANTAUGear/RANTAUGear.vbproj
 ```
 
 Semua data masih berupa contoh dalam memori. Perubahan bertahan saat keluar-masuk akun dalam proses yang sama, tetapi hilang setelah aplikasi ditutup. Tidak ada database online yang terhubung.
@@ -34,7 +34,7 @@ Akun dan password tersebut hanya untuk demo lokal. Autentikasi produksi belum di
 ## Pemeriksaan
 
 ```powershell
-dotnet build tesproyek.slnx
+dotnet build RANTAUGear.slnx
 dotnet run --project tests/RantauGear.Checks.vbproj -- --check
 ```
 
