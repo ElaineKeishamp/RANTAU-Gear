@@ -1,4 +1,5 @@
 param(
+    [string]$AdditionalMigration,
     [string]$PostgresBin = 'C:\Program Files\PostgreSQL\18\bin',
     [string]$OutputRoot = 'D:\elaine\SEM 5\Pemrograman Visual-backup'
 )
@@ -41,6 +42,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot create test database.' }
     Invoke-TestSql (Join-Path $PSScriptRoot 'bootstrap_local.sql')
     Get-ChildItem -LiteralPath (Join-Path $projectRoot 'supabase\migrations') -Filter '*.sql' | Sort-Object Name | ForEach-Object { Invoke-TestSql $_.FullName }
+    if ($AdditionalMigration) { Invoke-TestSql $AdditionalMigration }
     Invoke-TestSql (Join-Path $PSScriptRoot 'reservations.sql')
     Invoke-TestSql (Join-Path $PSScriptRoot 'concurrency_setup.sql')
     $raceSql=Join-Path $PSScriptRoot 'concurrent_reservation.sql'

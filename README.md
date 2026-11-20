@@ -40,9 +40,9 @@ dotnet run --project tests/RantauGear.Checks.vbproj -- --check
 
 Runner tanpa paket pengujian eksternal memeriksa validasi booking, stok, hak akses, harga paket, pembulatan tarif, batas denda, dan pencatatan QC. Tanpa `--check`, runner membuka pratinjau administrator menggunakan repository demo terpisah untuk pemeriksaan desain. Pratinjau tersebut berada di proyek pengujian dan bukan jalur login aplikasi utama.
 
-## Supabase: persiapan integrasi
+## Supabase: database terpasang, integrasi UI berlanjut
 
-Migrasi database dan transport HTTP async tersedia di branch pengembangan. Belum diterapkan ke akun Supabase pengguna dan belum menggantikan repository pada form. Aplikasi utama masih menjalankan alur serta aturan demo yang dijelaskan di atas.
+Lima migrasi database sudah diterapkan ke proyek Supabase RANTAUGear. Transport HTTP async dan konfigurasi lokal tersedia, tetapi adapter repository dan form belum terhubung. Aplikasi utama masih menjalankan alur serta aturan demo yang dijelaskan di atas.
 
 - [Aturan bisnis yang disepakati](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
 - [Panduan Supabase dan status pekerjaan](docs/SUPABASE_SETUP.md): schema, RLS, RPC, akun awal, konfigurasi lokal, pengujian, dan langkah yang masih perlu dilakukan.

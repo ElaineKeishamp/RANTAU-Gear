@@ -163,4 +163,6 @@ select pg_temp.expect_error('select rantau_private.is_staff(array[''super_admin'
 reset role;
 select pg_temp.assert_true((select count(*)>0 from public.audit_log where table_name='payments'),'Payment audit captured');
 select pg_temp.expect_error('delete from public.payments','23514','Database trigger protects payment history even with elevated SQL');
+select pg_temp.assert_true((select count(*)=0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),'Public RPC wrappers do not run with owner privileges');
+select pg_temp.assert_true((select bool_and(relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','rantau_private') and relkind='r'),'RLS covers business tables and private request ledger');
 rollback;

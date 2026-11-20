@@ -2,9 +2,9 @@
 
 ## Status implementasi
 
-Migrasi dan transport HTTP async sudah disiapkan dan diuji pada PostgreSQL lokal. Belum diterapkan ke Supabase pengguna: Project URL, proyek tujuan, serta akses akun belum tersedia. Aplikasi utama tetap memakai DummyRepository dan aturan demo lama; transport baru belum dipasang ke form maupun menggantikan IRentalRepository.
+Lima migrasi sudah diterapkan ke proyek Supabase RANTAUGear (zlwkpiuozuxxynyenhww), PostgreSQL 17. API URL dan publishable key aktif tersimpan di supabase.local.json yang diabaikan Git. Tabel, RLS, fungsi dan penolakan akses tanpa staff sudah diverifikasi pada cloud. Aplikasi utama tetap memakai DummyRepository dan aturan demo lama; transport baru belum dipasang ke form maupun menggantikan IRentalRepository.
 
-Pekerjaan selanjutnya: hubungkan proyek Supabase, terapkan migrasi melalui tool/CLI, buat akun staff dan profil, implementasikan adapter repository async beserta DTO, hubungkan form, lalu uji end-to-end dengan akun cloud. Jangan menyambungkan RPC secara blocking ke interface sinkron yang lama. Evolusikan IRentalRepository dan pemanggilnya bersama agar batas akses data tetap satu.
+Pekerjaan selanjutnya: buat akun staff dan profil, implementasikan adapter repository async beserta DTO, hubungkan form, lalu uji end-to-end dengan akun cloud. Jangan menyambungkan RPC secara blocking ke interface sinkron yang lama. Evolusikan IRentalRepository dan pemanggilnya bersama agar batas akses data tetap satu.
 
 ## Yang diperlukan dari pemilik
 
@@ -17,14 +17,16 @@ Pekerjaan selanjutnya: hubungkan proyek Supabase, terapkan migrasi melalui tool/
 
 Urutan berkas di supabase/migrations:
 
-1. 202611200001_schema.sql: tabel, relasi, RLS, audit dan proteksi history.
-2. 202611200002_reservations.sql: pelanggan, kapasitas, reservasi, DP, pembatalan, hangus, denda.
-3. 202611200003_rental_lifecycle.sql: pengambilan, perpanjangan, QC, persetujuan dan settlement.
-4. 202611200004_rental_overview.sql: status efektif terlambat/hangus dengan security_invoker dan RLS tabel asal.
+1. 20261120151712_rantau_schema.sql: tabel, relasi, RLS, audit dan proteksi history.
+2. 20261120151722_rantau_reservations.sql: pelanggan, kapasitas, reservasi, DP, pembatalan, hangus, denda.
+3. 20261120151733_rantau_rental_lifecycle.sql: pengambilan, perpanjangan, QC, persetujuan dan settlement.
+4. 20261120151742_rantau_rental_overview.sql: status efektif terlambat/hangus dengan security_invoker dan RLS tabel asal.
+5. 20261120151939_rantau_private_rpc_and_indexes.sql: implementasi transaksi dipindah ke rantau_private, wrapper public memakai SECURITY INVOKER, RLS ledger privat dan indeks foreign key.
+5. 20261120151939_rantau_private_rpc_and_indexes.sql: implementasi privileged di schema privat, wrapper API security invoker, indeks foreign key, dan RLS ledger idempotensi.
 
 Target awal adalah proyek khusus RANTAU Gear yang kosong. Jangan menjalankan migrasi awal ini membabi buta pada proyek dengan tabel bernama sama. Jangan menerapkan ulang migrasi yang sudah tercatat. Tidak ada DROP tabel atau penghapusan data dalam migrasi.
 
-Jalur utama menggunakan migrasi Supabase, bukan mengedit schema satu per satu melalui Table Editor. Jika CLI tersedia, pemilik menjalankan supabase login sendiri, lalu supabase link --project-ref PROJECT_REF. Review dengan supabase db push --dry-run sebelum supabase db push. Token/password bila diminta diisi sendiri pada terminal; jangan dipasang dalam argumen perintah atau source. SQL Editor hanya fallback terarah; perlu rekonsiliasi migration history sebelum beralih ke CLI, bukan menjalankan kedua jalur berulang.
+Penerapan saat ini dilakukan melalui apply_migration pada plugin Supabase, yang sekaligus mencatat migration history. Jangan mengedit schema satu per satu melalui Table Editor atau menjalankan ulang file yang sudah terpasang. Bila kelak memakai CLI, periksa versi serta --help terlebih dahulu, pilih target hosted/linked secara eksplisit sesuai versi CLI, dan review dry-run sebelum perubahan cloud. Pemilik melakukan login serta mengisi rahasia sendiri pada terminal; jangan memasang token/password pada argumen atau source. SQL Editor hanya fallback terarah dan perlu rekonsiliasi migration history sebelum beralih ke CLI.
 
 ## Akun pertama
 
@@ -81,3 +83,7 @@ dotnet run --project tests/RantauGear.Checks.vbproj --artifacts-path 'D:\elaine\
 ```
 
 Referensi: https://supabase.com/docs/guides/getting-started/api-keys ; https://supabase.com/docs/guides/database/postgres/row-level-security ; https://supabase.com/docs/guides/database/functions ; https://supabase.com/docs/guides/deployment/database-migrations
+
+## Hasil penerapan cloud
+
+2026-11-20: 17 tabel public dan satu ledger privat; 11 endpoint RPC. Tidak ada akun/password produksi atau transaksi contoh yang ditanam. Security advisor tidak melaporkan WARN/ERROR setelah hardening; INFO requests RLS tanpa policy disengaja (deny-all, hanya fungsi owner yang mengakses). INFO unused_index wajar pada database baru; indeks relasi tidak dihapus hanya untuk menghilangkan INFO. Remediasi: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy dan https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index . Nama/versi file migrasi disamakan dengan migration history cloud; jangan menjalankan ulang migrasi awal.
