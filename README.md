@@ -40,15 +40,23 @@ dotnet run --project tests/RantauGear.Checks.vbproj -- --check
 
 Runner tanpa paket pengujian eksternal memeriksa validasi booking, stok, hak akses, harga paket, pembulatan tarif, batas denda, dan pencatatan QC. Tanpa `--check`, runner membuka pratinjau administrator menggunakan repository demo terpisah untuk pemeriksaan desain. Pratinjau tersebut berada di proyek pengujian dan bukan jalur login aplikasi utama.
 
-## Supabase nanti
+## Supabase: persiapan integrasi
 
-Pembuatan proyek Supabase, koneksi database, autentikasi online, dan migrasi data ditunda sesuai ruang lingkup saat ini. Batas akses data tetap melalui `IRentalRepository`; `DummyRepository` adalah implementasi demo.
+Migrasi database dan transport HTTP async tersedia di branch pengembangan. Belum diterapkan ke akun Supabase pengguna dan belum menggantikan repository pada form. Aplikasi utama masih menjalankan alur serta aturan demo yang dijelaskan di atas.
 
-Saat integrasi online dikerjakan, implementasi repository perlu diubah menjadi async agar antarmuka tidak macet. Booking dan pengembalian harus menggunakan transaksi/RPC di database agar pembaruan rental, stok, inspeksi, dan denda bersifat atomik serta tidak terjadi sewa ganda antar komputer. Pemeriksaan stok di aplikasi saat ini hanya melindungi satu sesi lokal.
+- [Aturan bisnis yang disepakati](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
+- [Panduan Supabase dan status pekerjaan](docs/SUPABASE_SETUP.md): schema, RLS, RPC, akun awal, konfigurasi lokal, pengujian, dan langkah yang masih perlu dilakukan.
+- Migrasi di `supabase/migrations`; fixture/Auth tiruan di `supabase/tests` hanya untuk PostgreSQL lokal, bukan cloud.
+- `supabase.example.json` hanya template. Konfigurasi sebenarnya memakai `supabase.local.json`, yang diabaikan Git. Jangan menanam secret/service-role key atau password database ke aplikasi.
+- `IRentalRepository` tetap menjadi batas akses data. Adapter online serta migrasi pemanggil ke async belum selesai; transport tidak boleh dipasang dengan blocking `.Result` pada UI.
 
-Gunakan Supabase Auth dan kebijakan RLS untuk hak akses produksi. Jangan menyalin daftar password demo ke tabel online dan jangan menanam service-role key ke aplikasi desktop. Struktur domain yang sudah tersedia: kategori, unit, paket/isi paket, pelanggan, rental/isi rental, inspeksi, denda, serta profil/peran pengguna.
+```powershell
+.\supabase\tests\Test-Database.ps1
+```
 
-Pembuatan installer atau paket EXE distribusi juga ditunda. File hasil debug build hanya digunakan untuk pengujian.
+Runner database membuat cluster uji terisolasi pada localhost, menerapkan migrasi, menguji aturan bisnis dan RLS, serta menguji dua koneksi yang memesan unit terakhir bersamaan. Server dihentikan setelah selesai. Hasil pengujian disimpan di folder backup proyek.
+
+Pembuatan installer atau paket EXE distribusi tetap ditunda.
 
 ## Skill dan alat pengembangan
 

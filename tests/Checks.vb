@@ -46,6 +46,7 @@ Module Checks
     Public Sub Main(args As String())
         Application.SetHighDpiMode(HighDpiMode.SystemAware)
         Application.EnableVisualStyles()
+        passed += SupabaseChecks.RunAsync().GetAwaiter().GetResult()
         Dim repo As New DummyRepository()
         Dim admin = repo.GetUsers()(0)
         Dim front = repo.GetUsers()(1)
