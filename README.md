@@ -50,8 +50,3 @@ Gunakan Supabase Auth dan kebijakan RLS untuk hak akses produksi. Jangan menyali
 
 Pembuatan installer atau paket EXE distribusi juga ditunda. File hasil debug build hanya digunakan untuk pengujian.
 
-## Skill dan alat pengembangan
-
-Skill [anti-slop](https://github.com/miqdadbadjuber/anti-slop) sudah tersedia di lingkungan Codex dan digunakan dalam mode DURING pada pekerjaan ini. Arah visual dicatat di `DESIGN.md`, dengan panduan proyek di `AGENTS.md`.
-
-[Codebase Memory MCP](https://github.com/DeusData/codebase-memory-mcp) sudah terhubung dan proyek ini telah diindeks. Cakupan simbol VB.NET pada indeks yang tersedia terbatas, sehingga pemeriksaan kode tetap membaca berkas `.vb` secara langsung. Tidak diperlukan pemasangan ulang kedua alat tersebut.
