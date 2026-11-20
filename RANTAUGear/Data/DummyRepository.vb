@@ -5,11 +5,27 @@ Option Infer On
 Imports System
 Imports System.Collections.Generic
 Imports System.Linq
+Imports System.Threading
+Imports System.Threading.Tasks
 Imports RantauGear.Models
 
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public ReadOnly Property IsOnline As Boolean Implements IRentalRepository.IsOnline
+            Get
+                Return False
+            End Get
+        End Property
+        Public Function GetCurrentUserAsync(cancellationToken As CancellationToken) As Task(Of AppUser) Implements IRentalRepository.GetCurrentUserAsync
+            Throw New NotSupportedException("Repository demo tidak memiliki sesi online.")
+        End Function
+        Public Function ReadPageAsync(section As String, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of RepositoryPage) Implements IRentalRepository.ReadPageAsync
+            Throw New NotSupportedException("Gunakan pembaca demo lokal untuk pratinjau pengujian.")
+        End Function
+        Public Function SignOutAsync(cancellationToken As CancellationToken) As Task Implements IRentalRepository.SignOutAsync
+            Return Task.CompletedTask
+        End Function
 
         Private ReadOnly categories As New List(Of Category)()
         Private ReadOnly units As New List(Of Unit)()

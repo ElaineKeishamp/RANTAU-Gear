@@ -2,6 +2,7 @@ Option Strict On
 Option Explicit On
 Option Infer On
 
+Imports System.IO
 Imports System.Net
 Imports System.Net.Http
 Imports System.Net.Http.Headers
@@ -22,17 +23,29 @@ Namespace Data.Supabase
         Public Property ExpiresIn As Integer
     End Class
 
+    Public NotInheritable Class SupabaseAuthUser
+        <JsonPropertyName("id")>
+        Public Property Id As Guid
+    End Class
+
+    Public NotInheritable Class SupabaseRows
+        Public ReadOnly Property Records As IReadOnlyList(Of JsonElement)
+        Public ReadOnly Property Total As Long?
+        Public Sub New(records As IReadOnlyList(Of JsonElement), total As Long?)
+            Me.Records = records
+            Me.Total = total
+        End Sub
+    End Class
+
     Public NotInheritable Class SupabaseRequestException
         Inherits Exception
         Public ReadOnly Property StatusCode As HttpStatusCode
-
         Public Sub New(statusCode As HttpStatusCode, message As String)
             MyBase.New(message)
             Me.StatusCode = statusCode
         End Sub
     End Class
 
-    ' Transport only: the demo repository is never silently replaced by this client.
     Public NotInheritable Class SupabaseGateway
         Implements IDisposable
 
@@ -40,6 +53,11 @@ Namespace Data.Supabase
         Private ReadOnly client As HttpClient
         Private ReadOnly ownsClient As Boolean
         Private Shared ReadOnly JsonSettings As New JsonSerializerOptions With {.PropertyNameCaseInsensitive = True}
+
+        Private NotInheritable Class Reply
+            Public Property Content As String = String.Empty
+            Public Property Total As Long?
+        End Class
 
         Public Sub New(options As SupabaseOptions, Optional client As HttpClient = Nothing)
             If options Is Nothing Then Throw New ArgumentNullException(NameOf(options))
@@ -49,46 +67,87 @@ Namespace Data.Supabase
         End Sub
 
         Public Async Function SignInAsync(email As String, password As String, Optional cancellationToken As CancellationToken = Nothing) As Task(Of SupabaseSession)
-            If String.IsNullOrWhiteSpace(email) OrElse String.IsNullOrEmpty(password) Then
-                Throw New ArgumentException("Email dan password wajib diisi.")
-            End If
-            Return Await SendAsync(Of SupabaseSession)("auth/v1/token?grant_type=password",
-                New With {.email = email.Trim(), .password = password}, Nothing, cancellationToken).ConfigureAwait(False)
+            If String.IsNullOrWhiteSpace(email) OrElse String.IsNullOrEmpty(password) Then Throw New ArgumentException("Email dan password wajib diisi.")
+            Dim result = Await RequestAsync(HttpMethod.Post, "auth/v1/token?grant_type=password", New With {.email = email.Trim(), .password = password}, Nothing, False, cancellationToken).ConfigureAwait(False)
+            Return ParseSession(result.Content)
         End Function
 
         Public Async Function RefreshSessionAsync(refreshToken As String, Optional cancellationToken As CancellationToken = Nothing) As Task(Of SupabaseSession)
             If String.IsNullOrWhiteSpace(refreshToken) Then Throw New ArgumentException("Refresh token tidak tersedia.", NameOf(refreshToken))
-            Return Await SendAsync(Of SupabaseSession)("auth/v1/token?grant_type=refresh_token",
-                New With {.refresh_token = refreshToken}, Nothing, cancellationToken).ConfigureAwait(False)
+            Dim result = Await RequestAsync(HttpMethod.Post, "auth/v1/token?grant_type=refresh_token", New With {.refresh_token = refreshToken}, Nothing, False, cancellationToken).ConfigureAwait(False)
+            Return ParseSession(result.Content)
+        End Function
+
+        Private Shared Function ParseSession(content As String) As SupabaseSession
+            Dim result = JsonSerializer.Deserialize(Of SupabaseSession)(content, JsonSettings)
+            If result Is Nothing OrElse String.IsNullOrWhiteSpace(result.AccessToken) OrElse String.IsNullOrWhiteSpace(result.RefreshToken) OrElse result.ExpiresIn <= 0 Then
+                Throw New InvalidDataException("Layanan mengembalikan sesi login yang tidak lengkap.")
+            End If
+            Return result
+        End Function
+
+        Public Async Function GetUserAsync(accessToken As String, cancellationToken As CancellationToken) As Task(Of SupabaseAuthUser)
+            RequireToken(accessToken)
+            Dim response = Await RequestAsync(HttpMethod.Get, "auth/v1/user", Nothing, accessToken, False, cancellationToken).ConfigureAwait(False)
+            Dim user = JsonSerializer.Deserialize(Of SupabaseAuthUser)(response.Content, JsonSettings)
+            If user Is Nothing OrElse user.Id = Guid.Empty Then Throw New InvalidDataException("Identitas akun dari layanan tidak valid.")
+            Return user
+        End Function
+
+        Public Async Function ReadRowsAsync(resource As String, columns As String, order As String, offset As Integer, pageSize As Integer,
+            accessToken As String, cancellationToken As CancellationToken, Optional identityFilter As Guid? = Nothing) As Task(Of SupabaseRows)
+            ValidateName(resource)
+            RequireToken(accessToken)
+            If offset < 0 OrElse pageSize < 1 OrElse pageSize > 100 Then Throw New ArgumentOutOfRangeException(NameOf(pageSize))
+            Dim path = "rest/v1/" & resource & "?select=" & Uri.EscapeDataString(columns) & "&order=" & Uri.EscapeDataString(order) &
+                "&offset=" & offset.ToString(Globalization.CultureInfo.InvariantCulture) & "&limit=" & pageSize.ToString(Globalization.CultureInfo.InvariantCulture)
+            If identityFilter.HasValue Then path &= "&id=eq." & identityFilter.Value.ToString("D")
+            Dim response = Await RequestAsync(HttpMethod.Get, path, Nothing, accessToken, True, cancellationToken).ConfigureAwait(False)
+            Using document = JsonDocument.Parse(response.Content)
+                If document.RootElement.ValueKind <> JsonValueKind.Array Then Throw New InvalidDataException("Layanan tidak mengembalikan daftar data.")
+                Dim rows = document.RootElement.EnumerateArray().Select(Function(item) item.Clone()).ToList()
+                Return New SupabaseRows(rows, response.Total)
+            End Using
         End Function
 
         Public Async Function RpcAsync(Of T)(functionName As String, parameters As Object, accessToken As String,
             Optional cancellationToken As CancellationToken = Nothing) As Task(Of T)
-            If String.IsNullOrEmpty(functionName) OrElse Not Regex.IsMatch(functionName, "\A[a-z_][a-z0-9_]*\z", RegexOptions.CultureInvariant) Then
-                Throw New ArgumentException("Nama fungsi RPC tidak valid.", NameOf(functionName))
-            End If
-            If String.IsNullOrWhiteSpace(accessToken) Then Throw New InvalidOperationException("Login diperlukan sebelum mengakses data online.")
-            Return Await SendAsync(Of T)("rest/v1/rpc/" & functionName, parameters, accessToken, cancellationToken).ConfigureAwait(False)
+            ValidateName(functionName)
+            RequireToken(accessToken)
+            Dim response = Await RequestAsync(HttpMethod.Post, "rest/v1/rpc/" & functionName, parameters, accessToken, False, cancellationToken).ConfigureAwait(False)
+            If String.IsNullOrWhiteSpace(response.Content) Then Return Nothing
+            Return JsonSerializer.Deserialize(Of T)(response.Content, JsonSettings)
         End Function
 
         Public Async Function SignOutAsync(accessToken As String, Optional cancellationToken As CancellationToken = Nothing) As Task
-            If String.IsNullOrWhiteSpace(accessToken) Then Throw New ArgumentException("Access token tidak tersedia.", NameOf(accessToken))
-            Await SendAsync(Of JsonElement)("auth/v1/logout?scope=local", New With {.unused = True}, accessToken, cancellationToken).ConfigureAwait(False)
+            RequireToken(accessToken)
+            Await RequestAsync(HttpMethod.Post, "auth/v1/logout?scope=local", Nothing, accessToken, False, cancellationToken).ConfigureAwait(False)
         End Function
 
-        Private Async Function SendAsync(Of T)(relativePath As String, body As Object, accessToken As String,
-            cancellationToken As CancellationToken) As Task(Of T)
-            Using request As New HttpRequestMessage(HttpMethod.Post, New Uri(options.ProjectUrl, relativePath))
+        Private Shared Sub ValidateName(name As String)
+            If String.IsNullOrEmpty(name) OrElse Not Regex.IsMatch(name, "\A[a-z_][a-z0-9_]*\z", RegexOptions.CultureInvariant) Then
+                Throw New ArgumentException("Nama resource Supabase tidak valid.", NameOf(name))
+            End If
+        End Sub
+
+        Private Shared Sub RequireToken(token As String)
+            If String.IsNullOrWhiteSpace(token) Then Throw New InvalidOperationException("Login diperlukan sebelum mengakses data online.")
+        End Sub
+
+        Private Async Function RequestAsync(method As HttpMethod, relativePath As String, body As Object, accessToken As String,
+            countRows As Boolean, cancellationToken As CancellationToken) As Task(Of Reply)
+            Using request As New HttpRequestMessage(method, New Uri(options.ProjectUrl, relativePath))
                 request.Headers.Add("apikey", options.PublishableKey)
                 request.Headers.Accept.Add(New MediaTypeWithQualityHeaderValue("application/json"))
+                If countRows Then request.Headers.Add("Prefer", "count=exact")
                 If accessToken IsNot Nothing Then request.Headers.Authorization = New AuthenticationHeaderValue("Bearer", accessToken)
-                request.Content = New StringContent(JsonSerializer.Serialize(body, JsonSettings), Encoding.UTF8, "application/json")
+                If method <> HttpMethod.Get Then request.Content = New StringContent(JsonSerializer.Serialize(body, JsonSettings), Encoding.UTF8, "application/json")
                 Using response = Await client.SendAsync(request, cancellationToken).ConfigureAwait(False)
                     If Not response.IsSuccessStatusCode Then
                         Dim message As String
                         Select Case response.StatusCode
                             Case HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity
-                                message = "Permintaan ditolak. Periksa input dan aturan transaksi."
+                                message = If(relativePath.StartsWith("auth/v1/token?grant_type=password", StringComparison.Ordinal), "Email atau password tidak sesuai, atau akun belum dapat masuk.", "Permintaan ditolak. Periksa input dan aturan transaksi.")
                             Case HttpStatusCode.Unauthorized
                                 message = "Login gagal atau sesi telah berakhir."
                             Case HttpStatusCode.Forbidden
@@ -100,13 +159,20 @@ Namespace Data.Supabase
                             Case Else
                                 message = "Layanan Supabase tidak dapat menyelesaikan permintaan."
                         End Select
-                        ' Never surface raw server bodies: they can contain submitted data or tokens.
+                        ' Server bodies can contain submitted data; only controlled messages reach the UI.
                         Throw New SupabaseRequestException(response.StatusCode, message)
                     End If
-                    If response.StatusCode = HttpStatusCode.NoContent Then Return Nothing
-                    Dim content = Await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(False)
-                    If String.IsNullOrWhiteSpace(content) Then Return Nothing
-                    Return JsonSerializer.Deserialize(Of T)(content, JsonSettings)
+                    Dim result As New Reply()
+                    If response.Content IsNot Nothing Then
+                        result.Content = Await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(False)
+                        Dim ranges As IEnumerable(Of String) = Nothing
+                        If response.Content.Headers.TryGetValues("Content-Range", ranges) OrElse response.Headers.TryGetValues("Content-Range", ranges) Then
+                            Dim total As Long
+                            Dim suffix = ranges.First().Split("/"c).Last()
+                            If Long.TryParse(suffix, Globalization.NumberStyles.None, Globalization.CultureInfo.InvariantCulture, total) AndAlso total >= 0 Then result.Total = total
+                        End If
+                    End If
+                    Return result
                 End Using
             End Using
         End Function

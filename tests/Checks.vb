@@ -47,6 +47,7 @@ Module Checks
         Application.SetHighDpiMode(HighDpiMode.SystemAware)
         Application.EnableVisualStyles()
         passed += SupabaseChecks.RunAsync().GetAwaiter().GetResult()
+        passed += OnlineRepositoryChecks.RunAsync().GetAwaiter().GetResult()
         Dim repo As New DummyRepository()
         Dim admin = repo.GetUsers()(0)
         Dim front = repo.GetUsers()(1)
@@ -103,11 +104,11 @@ Module Checks
             Dim passwordBox = Field(Of TextBox)(login, "passwordBox")
             Check(passwordBox.UseSystemPasswordChar, "Login masks password initially")
             InvokeHandler(login, "TogglePassword")
-            Check(Not passwordBox.UseSystemPasswordChar, "Show password control reveals demo field")
+            Check(Not passwordBox.UseSystemPasswordChar, "Show password control reveals password field")
             InvokeHandler(login, "TogglePassword")
             Check(passwordBox.UseSystemPasswordChar, "Show password control restores masking")
             InvokeHandler(login, "LoginClicked")
-            Check(Field(Of Label)(login, "errorLabel").Text.Contains("tidak sesuai"), "Invalid login shows inline validation without opening main window")
+            Check(Field(Of Label)(login, "errorLabel").Text.Contains("wajib diisi"), "Empty online login shows inline validation without opening main window")
         End Using
         For Each actor In repo.GetUsers()
             Using main As New MainForm(actor, repo)
@@ -130,8 +131,9 @@ Module Checks
             Field(Of DateTimePicker)(report, "fromDate").Value = DateTime.Today.AddDays(1)
             Check(Field(Of Label)(report, "totals").Text.Contains("Tanggal awal"), "Report rejects reversed date filter")
         End Using
+        If args.Contains("--ui-check") Then passed += OnlineUiChecks.Run()
         Console.WriteLine(passed.ToString() & " checks passed.")
-        If args.Contains("--check") Then Return
+        If args.Contains("--check") OrElse args.Contains("--ui-check") Then Return
         Application.Run(New MainForm(New DummyRepository().GetUsers()(0), New DummyRepository()))
     End Sub
 End Module

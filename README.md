@@ -1,65 +1,51 @@
 # RANTAU Gear Rental
 
-Aplikasi desktop VB.NET Windows Forms untuk penyewaan alat outdoor dan dokumentasi. Target: .NET 10 di Windows.
+Aplikasi desktop VB.NET Windows Forms, .NET 10 di Windows, untuk petugas toko rental outdoor. Login utama menggunakan Supabase Auth dan profil staf online. Tidak ada akun pelanggan atau upload foto KTP.
 
-## Menjalankan proyek
+## Menjalankan
 
-Buka `RANTAUGear.slnx` di Visual Studio dengan dukungan .NET 10 dan Windows Forms, lalu jalankan proyek `RANTAUGear`. Alternatif dari folder ini:
+Buka `RANTAUGear.slnx` di Visual Studio dan jalankan proyek `RANTAUGear`. Dari terminal:
 
 ```powershell
-dotnet run --project RANTAUGear/RANTAUGear.vbproj
+dotnet run --project RANTAUGear/RANTAUGear.vbproj --artifacts-path 'D:\elaine\SEM 5\Pemrograman Visual-backup\RANTAUGear-validation'
 ```
 
-Semua data masih berupa contoh dalam memori. Perubahan bertahan saat keluar-masuk akun dalam proses yang sama, tetapi hilang setelah aplikasi ditutup. Tidak ada database online yang terhubung.
+Siapkan `supabase.local.json` di root proyek berdasarkan `supabase.example.json`. Gunakan Project URL dan publishable key, bukan secret/service-role key atau password database. File lokal diabaikan Git dan disalin ke output debug; tidak ikut publish. Alternatif: tetapkan `RANTAUGEAR_CONFIG_PATH` ke path konfigurasi sendiri. Jika konfigurasi hilang atau salah, aplikasi menampilkan error dan tidak beralih ke demo.
 
-| Peran demo | Username | Password | Akses |
-| --- | --- | --- | --- |
-| Administrator | superadmin | admin123 | Semua halaman |
-| Front office | front | front123 | Dashboard, Booking, Laporan |
-| Gudang dan QC | gudang | gudang123 | Dashboard, Pengembalian & QC |
+Masuk menggunakan email/password akun Supabase yang sudah memiliki `staff_profiles` aktif. Password diketik sendiri oleh pengguna dan tidak disimpan ke file.
 
-Akun dan password tersebut hanya untuk demo lokal. Autentikasi produksi belum diterapkan.
+## Yang tersedia saat ini
 
-## Alur yang tersedia
+- Login async dengan validasi identitas server, profil, akun aktif, dan peran.
+- Menu berdasarkan role Super Admin, front office, atau gudang/QC.
+- Pembacaan data online melalui `IRentalRepository.ReadPageAsync`, 25 baris per halaman, jumlah total dari server, muat ulang, dan pembatalan.
+- Daftar transaksi, unit, paket, dan profil staf sesuai hak akses. Tanggal ditampilkan dalam WIB.
+- Loading, empty state, koneksi gagal, sesi berakhir, dan penanda data sebelumnya ketika refresh gagal.
+- Refresh token terkoordinasi di memori. Logout membersihkan sesi lokal dan meminta pencabutan sesi server.
 
-- Dashboard menampilkan jumlah unit dan antrean pengembalian berdasarkan data repository.
-- Katalog mendukung pencarian serta perubahan status siap/perawatan. Alat yang masih disewa harus melalui pengembalian dahulu.
-- Paket menampilkan isi dan kesiapan unit fisik. Paket dapat dipilih saat booking.
-- Booking mencatat pelanggan baru, pemeriksaan identitas, waktu ambil/kembali, unit atau paket, dan deposit. Booking langsung mengeluarkan unit dari stok siap. Tarif dihitung per hari, dibulatkan ke atas per 24 jam; ini belum merupakan reservasi masa depan dengan status terpisah.
-- Pengembalian memeriksa setiap unit. Kerusakan/denda memerlukan catatan; alat yang perlu perawatan tidak langsung tersedia lagi.
-- Denda terlambat menggunakan toleransi 30 menit, kemudian 10% jumlah tarif harian unit per jam, dibulatkan ke atas. Besaran ini adalah aturan demo dan dapat disesuaikan.
-- Laporan memfilter tanggal pengambilan, membedakan subtotal sewa dari deposit, dan mengekspor CSV UTF-8. Nilai sewa merupakan rekap transaksi, bukan pencatatan pembayaran kas.
-- Kelola User mengaktifkan/nonaktifkan akun demo dan mencegah penonaktifan akun sendiri.
+Tahap ini hanya mencakup login dan repository online untuk pembacaan. Tombol perubahan inventaris, reservasi, pembayaran dan QC belum tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Database dan fungsi transaksinya sudah terpasang, tetapi form transaksi akan dihubungkan pada tahap berikutnya.
+
+Tidak dilakukan konversi ke Visual Studio Designer. UI tetap disusun dalam kode sesuai keputusan pemilik.
+
+## Database Supabase
+
+Proyek `RANTAUGear` sudah memiliki lima migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
+
+- [Aturan bisnis](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
+- [Setup dan kontrak integrasi](docs/SUPABASE_SETUP.md).
+- [Pemeriksaan UI dan batas validasi](docs/ONLINE_LOGIN_QA.md).
 
 ## Pemeriksaan
 
 ```powershell
-dotnet build RANTAUGear.slnx
-dotnet run --project tests/RantauGear.Checks.vbproj -- --check
-```
-
-Runner tanpa paket pengujian eksternal memeriksa validasi booking, stok, hak akses, harga paket, pembulatan tarif, batas denda, dan pencatatan QC. Tanpa `--check`, runner membuka pratinjau administrator menggunakan repository demo terpisah untuk pemeriksaan desain. Pratinjau tersebut berada di proyek pengujian dan bukan jalur login aplikasi utama.
-
-## Supabase: database terpasang, integrasi UI berlanjut
-
-Lima migrasi database sudah diterapkan ke proyek Supabase RANTAUGear. Transport HTTP async dan konfigurasi lokal tersedia, tetapi adapter repository dan form belum terhubung. Aplikasi utama masih menjalankan alur serta aturan demo yang dijelaskan di atas.
-
-- [Aturan bisnis yang disepakati](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
-- [Panduan Supabase dan status pekerjaan](docs/SUPABASE_SETUP.md): schema, RLS, RPC, akun awal, konfigurasi lokal, pengujian, dan langkah yang masih perlu dilakukan.
-- Migrasi di `supabase/migrations`; fixture/Auth tiruan di `supabase/tests` hanya untuk PostgreSQL lokal, bukan cloud.
-- `supabase.example.json` hanya template. Konfigurasi sebenarnya memakai `supabase.local.json`, yang diabaikan Git. Jangan menanam secret/service-role key atau password database ke aplikasi.
-- `IRentalRepository` tetap menjadi batas akses data. Adapter online serta migrasi pemanggil ke async belum selesai; transport tidak boleh dipasang dengan blocking `.Result` pada UI.
-
-```powershell
+dotnet build RANTAUGear.slnx --artifacts-path 'D:\elaine\SEM 5\Pemrograman Visual-backup\RANTAUGear-validation'
+dotnet run --project tests/RantauGear.Checks.vbproj --artifacts-path 'D:\elaine\SEM 5\Pemrograman Visual-backup\RANTAUGear-validation' -- --check
+dotnet run --project tests/RantauGear.Checks.vbproj --artifacts-path 'D:\elaine\SEM 5\Pemrograman Visual-backup\RANTAUGear-validation' -- --ui-check
 .\supabase\tests\Test-Database.ps1
 ```
 
-Runner database membuat cluster uji terisolasi pada localhost, menerapkan migrasi, menguji aturan bisnis dan RLS, serta menguji dua koneksi yang memesan unit terakhir bersamaan. Server dihentikan setelah selesai. Hasil pengujian disimpan di folder backup proyek.
+`--ui-check` menjalankan form dengan server HTTP tiruan dan menyimpan screenshot QA ke folder backup. Tidak memakai password asli atau menanam data contoh ke cloud. Runner database memakai cluster PostgreSQL lokal terisolasi, kemudian menghentikannya.
 
-Pembuatan installer atau paket EXE distribusi tetap ditunda.
+Tanpa argumen, proyek `tests` juga dapat membuka pratinjau demo lokal. `DummyRepository`, akun contoh, dan service rental sinkron dipertahankan untuk pengujian regresi; tidak digunakan sebagai fallback login atau transaksi pada aplikasi utama.
 
-## Skill dan alat pengembangan
-
-Skill [anti-slop](https://github.com/miqdadbadjuber/anti-slop) sudah tersedia di lingkungan Codex dan digunakan dalam mode DURING pada pekerjaan ini. Arah visual dicatat di `DESIGN.md`, dengan panduan proyek di `AGENTS.md`.
-
-[Codebase Memory MCP](https://github.com/DeusData/codebase-memory-mcp) sudah terhubung dan proyek ini telah diindeks. Cakupan simbol VB.NET pada indeks yang tersedia terbatas, sehingga pemeriksaan kode tetap membaca berkas `.vb` secara langsung. Tidak diperlukan pemasangan ulang kedua alat tersebut.
+Installer/distribusi EXE tetap ditunda. Hasil build debug digunakan untuk pengujian.

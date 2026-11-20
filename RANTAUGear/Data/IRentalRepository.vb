@@ -3,10 +3,16 @@ Option Explicit On
 Option Infer On
 
 Imports System.Collections.Generic
+Imports System.Threading
+Imports System.Threading.Tasks
 Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        ReadOnly Property IsOnline As Boolean
+        Function GetCurrentUserAsync(cancellationToken As CancellationToken) As Task(Of AppUser)
+        Function ReadPageAsync(section As String, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of RepositoryPage)
+        Function SignOutAsync(cancellationToken As CancellationToken) As Task
         Function GetCategories() As List(Of Category)
         Function GetUnits() As List(Of Unit)
         Function GetPackages() As List(Of Package)
