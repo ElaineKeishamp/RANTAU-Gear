@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>RantauGearChecks</RootNamespace>
+    <StartupObject>RantauGearChecks.Checks</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../tesproyek/tesproyek.vbproj" />
+  </ItemGroup>
+</Project>
