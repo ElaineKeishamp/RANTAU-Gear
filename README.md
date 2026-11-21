@@ -26,19 +26,21 @@ Masuk menggunakan email/password akun Supabase yang sudah memiliki `staff_profil
 - Pengambilan melalui Booking: pilih unit siap sesuai reservasi, konfirmasi pelunasan/deposit dan pemeriksaan, lalu aktifkan sewa. Daftar menampilkan sewa dibayar dan deposit diterima dari ledger.
 - Pengembalian seluruh unit: QC baik/rusak/hilang, persetujuan denda oleh admin, lalu potong deposit dan catat refund atau pembayaran kekurangan.
 - Perpanjangan aktif sebelum jatuh tempo dengan preview biaya/stok, pembatalan pelanggan tanpa refund DP, serta pencatatan hangus per reservasi. Semua mempertahankan riwayat dan melindungi retry.
+- Laporan kas transaksi dan penyewaan: filter periode WIB/status, pagination, ringkasan deposit/nonkas, serta CSV seluruh hasil filter (maksimal 10.000 baris).
+- Kelola User: buat akun staf, edit nama/peran/aktif dengan pemeriksaan versi, dan ubah password melalui fungsi server Supabase.
 - Refresh token terkoordinasi di memori. Logout membersihkan sesi lokal dan meminta pencabutan sesi server.
 
-Login, pembacaan, dan pengelolaan data master sudah menggunakan Supabase. Reservasi dan pembayaran DP sudah tersedia. Pengambilan, pelunasan sisa sewa dan deposit sudah tersedia. Pengembalian/QC, persetujuan denda admin dan penyelesaian deposit juga sudah tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Perubahan transaksi dan pembayaran melalui RPC; laporan kas dan pengelolaan akun staf masih tahap berikutnya.
+Login, pembacaan, dan pengelolaan data master sudah menggunakan Supabase. Reservasi dan pembayaran DP sudah tersedia. Pengambilan, pelunasan sisa sewa dan deposit sudah tersedia. Pengembalian/QC, persetujuan denda admin dan penyelesaian deposit juga sudah tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Perubahan transaksi dan pembayaran melalui RPC; laporan kas/penyewaan dan pengelolaan akun staf juga sudah terhubung.
 
 Tidak dilakukan konversi ke Visual Studio Designer. UI tetap disusun dalam kode sesuai keputusan pemilik.
 
 ## Database Supabase
 
-Proyek `RANTAUGear` sudah memiliki sepuluh migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
+Proyek `RANTAUGear` sudah memiliki sebelas migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
 
 - [Aturan bisnis](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
 - [Setup dan kontrak integrasi](docs/SUPABASE_SETUP.md).
-- [Pemeriksaan login](docs/ONLINE_LOGIN_QA.md) dan [data master](docs/MASTER_DATA_QA.md), dan [reservasi/DP](docs/BOOKING_DP_QA.md), dan [pengambilan](docs/PICKUP_QA.md), dan [pengembalian/deposit](docs/RETURN_QA.md), dan [perubahan sewa](docs/BOOKING_CHANGES_QA.md).
+- [Pemeriksaan login](docs/ONLINE_LOGIN_QA.md) dan [data master](docs/MASTER_DATA_QA.md), dan [reservasi/DP](docs/BOOKING_DP_QA.md), dan [pengambilan](docs/PICKUP_QA.md), dan [pengembalian/deposit](docs/RETURN_QA.md), dan [perubahan sewa](docs/BOOKING_CHANGES_QA.md), dan [laporan/akun](docs/REPORTS_STAFF_QA.md).
 
 ## Pemeriksaan
 
@@ -70,3 +72,13 @@ Untuk pengembalian: admin/gudang membuka Pengembalian / QC, memilih sewa lalu Pe
 Status tabel mengikuti tahap: Pemeriksaan QC, Persetujuan admin, Penyelesaian uang, Selesai. Dikembalikan berarti pemeriksaan fisik selesai; uang baru selesai setelah tahap terakhir. Denda terlambat dihitung sampai waktu kembali tersimpan, bukan selama menunggu persetujuan/pembayaran.
 
 Perubahan sewa ada di Booking: pilih baris lalu Perpanjangan, Pembatalan, atau Catat hangus. Perpanjangan hanya sebelum jatuh tempo, memakai tarif snapshot dan tambahan biaya sesuai pembulatan hari, deposit tetap. Hitung biaya dan cek stok sebelum menerima uang. Pembatalan khusus permintaan pelanggan, membutuhkan alasan dan tidak mengembalikan DP. Status hangus dihitung server saat data dimuat; klik Muat ulang untuk melihat status terbaru. Catat hangus hanya menyimpan event/status setelah batas 12 jam, tanpa menggeser deadline atau menghapus DP. Stok sudah mengabaikan reservasi lewat deadline meskipun event hangus belum dicatat.
+
+## Berhenti untuk pemeriksaan pemilik
+
+Versi ini disiapkan untuk diperiksa melalui project Visual Studio. Tidak dilakukan dotnet publish, pembuatan installer, atau pengemasan distribusi EXE. Tahap distribusi menunggu pemeriksaan total dan instruksi lanjutan pemilik.
+
+Mulai dari [panduan pemeriksaan menyeluruh](docs/PRE_DISTRIBUTION_REVIEW.md). Tanda centang manual masih kosong dengan sengaja; pengujian otomatis tidak menggantikan konfirmasi pemilik.
+
+Laporan ada di menu Laporan. Kas transaksi berdasarkan waktu pembayaran; penyewaan berdasarkan jadwal ambil dan status efektif saat query. Deposit bukan pendapatan, pemotongan deposit bukan kas baru. Ekspor mengambil snapshot baru seluruh hasil filter, bukan hanya halaman tabel; CSV disimpan pada D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan.
+
+Kelola User khusus Super Admin. Akun dibuat dengan password yang diketik admin tanpa email undangan; akses diberikan kepada petugas secara pribadi. Jangan mengirim password kepada agent. Pengujian pembuatan akun Auth nyata dan login akun baru masih perlu dicoba sendiri oleh pemilik; agent tidak memegang password pemilik dan tidak meninggalkan akun cloud percobaan.

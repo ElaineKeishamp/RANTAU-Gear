@@ -323,6 +323,67 @@ Friend NotInheritable Class FakeSupabaseServer
         End Using
     End Function
 
+
+    Public Property ReportCount As Integer = 61
+    Public Property DropStaffReplyOnce As Boolean
+    Public Property RejectStaffVersion As Boolean
+    Public Property StaffWriteCount As Integer
+    Public ReadOnly StaffWriteIds As New List(Of String)()
+    Public ReadOnly staffRows As New List(Of Dictionary(Of String, Object))()
+    Private ReadOnly staffReplies As New Dictionary(Of String, (Body As String, Id As Guid))()
+    Private Async Function ReviewRpc(request As HttpRequestMessage, ct As CancellationToken) As Task(Of HttpResponseMessage)
+        If DelayReads Then Await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(False)
+        Using doc = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(ct).ConfigureAwait(False))
+            Dim body = doc.RootElement
+            Dim path = request.RequestUri.AbsolutePath
+            If path.EndsWith("read_report", StringComparison.Ordinal) Then
+                If StaffRole = "warehouse_qc" Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+                Dim kind = body.GetProperty("p_kind").GetString()
+                Dim summary As Object = If(kind = "cash", DirectCast(New With {.rental_receipts = 115000D, .deposit_received = 100000D, .deposit_refund = 75000D, .rent_refund = 5000D, .cash_net = 135000D, .deposit_applied = 25000D, .opening_deposit = 50000D, .closing_deposit = 50000D}, Object), New With {.total = If(EmptyData, 0, ReportCount), .reserved = ReportCount, .active = 0, .late = 0, .returned = 0, .cancelled = 0, .expired = 0})
+                Dim rows As New List(Of Object)()
+                Dim offset = body.GetProperty("p_offset").GetInt32()
+                Dim count = If(EmptyData, 0, ReportCount)
+                For reportIndex As Integer = offset To Math.Min(count - 1, offset + body.GetProperty("p_limit").GetInt32() - 1)
+                    If kind = "cash" Then
+                        rows.Add(New With {.id = reportIndex + 1, .recorded_at = "2026-11-21T00:00:00Z", .rental_number = "UJI-" & reportIndex.ToString(), .kind = "down_payment", .method = "cash", .cash_in = 25000D, .cash_out = 0D, .reference = If(reportIndex = 0, "=HYPERLINK(""fixture"")", "catatan uji")})
+                    Else
+                        rows.Add(New With {.id = reportIndex + 1, .rental_number = "UJI-" & reportIndex.ToString(), .customer_name = "Pelanggan uji", .pickup_at = "2026-11-21T00:00:00Z", .due_at = "2026-11-22T00:00:00Z", .display_state = "reserved", .rent_amount = 100000D})
+                    End If
+                Next
+                Return Reply(HttpStatusCode.OK, New With {.kind = kind, .total = count, .summary = summary, .rows = rows, .snapshot_at = "2026-11-21T03:00:00Z"})
+            End If
+            If StaffRole <> "super_admin" Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+            If staffRows.Count = 0 Then staffRows.Add(New Dictionary(Of String, Object) From {{"id", StaffId}, {"display_name", StaffName}, {"email", "admin@fixture.test"}, {"role", "super_admin"}, {"is_active", True}, {"row_version", 1L}})
+            If path.EndsWith("list_staff", StringComparison.Ordinal) Then
+                Return Reply(HttpStatusCode.OK, New With {.rows = staffRows.Skip(body.GetProperty("p_offset").GetInt32()).Take(body.GetProperty("p_limit").GetInt32()).ToArray(), .total = staffRows.Count})
+            End If
+            Dim uuid = If(path.EndsWith("update_staff", StringComparison.Ordinal), body.GetProperty("p_request_id").GetString(), body.GetProperty("request_id").GetString())
+            StaffWriteIds.Add(uuid)
+            If staffReplies.ContainsKey(uuid) Then
+                If staffReplies(uuid).Body <> body.GetRawText() Then Throw New InvalidOperationException("Staff retry changed payload")
+                Return If(path.EndsWith("update_staff", StringComparison.Ordinal), Reply(HttpStatusCode.OK, staffReplies(uuid).Id), Reply(HttpStatusCode.OK, New With {.user_id = staffReplies(uuid).Id}))
+            End If
+            If RejectStaffVersion Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_STAFF_VERSION"})
+            Dim id As Guid
+            If path.EndsWith("update_staff", StringComparison.Ordinal) Then
+                id = body.GetProperty("p_target_id").GetGuid()
+                If id = StaffId AndAlso (Not body.GetProperty("p_active").GetBoolean() OrElse body.GetProperty("p_role").GetString() <> "super_admin") Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_STAFF_SELF"})
+                Dim row = staffRows.Single(Function(x) DirectCast(x("id"), Guid) = id)
+                row("display_name") = body.GetProperty("p_name").GetString() : row("role") = body.GetProperty("p_role").GetString() : row("is_active") = body.GetProperty("p_active").GetBoolean() : row("row_version") = CLng(row("row_version")) + 1
+            ElseIf body.GetProperty("action").GetString() = "create" Then
+                id = Guid.NewGuid()
+                staffRows.Add(New Dictionary(Of String, Object) From {{"id", id}, {"display_name", body.GetProperty("display_name").GetString()}, {"email", body.GetProperty("email").GetString()}, {"role", body.GetProperty("role").GetString()}, {"is_active", True}, {"row_version", 1L}})
+            Else
+                id = body.GetProperty("target_id").GetGuid()
+            End If
+            StaffWriteCount += 1 : staffReplies(uuid) = (body.GetRawText(), id)
+            If DropStaffReplyOnce Then
+                DropStaffReplyOnce = False : Throw New HttpRequestException("Lost staff reply after commit")
+            End If
+            Return If(path.EndsWith("update_staff", StringComparison.Ordinal), Reply(HttpStatusCode.OK, id), Reply(HttpStatusCode.OK, New With {.user_id = id}))
+        End Using
+    End Function
+
     Protected Overrides Async Function SendAsync(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
         If Offline Then Throw New HttpRequestException("Simulated offline fixture")
         Dim path = request.RequestUri.AbsolutePath
@@ -346,6 +407,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If {"/rest/v1/rpc/read_report", "/rest/v1/rpc/list_staff", "/rest/v1/rpc/update_staff", "/functions/v1/staff-admin"}.Contains(path) Then Return Await ReviewRpc(request, cancellationToken).ConfigureAwait(False)
         If {"/rest/v1/rpc/get_booking_change_details", "/rest/v1/rpc/preview_extension", "/rest/v1/rpc/change_booking"}.Contains(path) Then Return Await ChangeRpc(request, cancellationToken).ConfigureAwait(False)
         If {"/rest/v1/rpc/get_return_details", "/rest/v1/rpc/inspect_return", "/rest/v1/rpc/approve_return_charges", "/rest/v1/rpc/settle_return"}.Contains(path) Then Return Await ReturnRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/get_pickup_details" OrElse path = "/rest/v1/rpc/pickup_reservation" Then Return Await PickupRpc(request, cancellationToken).ConfigureAwait(False)

@@ -121,6 +121,17 @@ Namespace Data.Supabase
             Return JsonSerializer.Deserialize(Of T)(response.Content, JsonSettings)
         End Function
 
+        Public Async Function StaffAdminAsync(parameters As Object, accessToken As String, ct As CancellationToken) As Task(Of Guid)
+            RequireToken(accessToken)
+            Dim response = Await RequestAsync(HttpMethod.Post, "functions/v1/staff-admin", parameters, accessToken, False, ct).ConfigureAwait(False)
+            Using document = JsonDocument.Parse(response.Content)
+                Dim field As JsonElement
+                Dim id As Guid
+                If document.RootElement.ValueKind <> JsonValueKind.Object OrElse Not document.RootElement.TryGetProperty("user_id", field) OrElse field.ValueKind <> JsonValueKind.String OrElse Not field.TryGetGuid(id) Then Throw New IO.InvalidDataException("Identitas akun belum terkonfirmasi.")
+                Return id
+            End Using
+        End Function
+
         Public Async Function SignOutAsync(accessToken As String, Optional cancellationToken As CancellationToken = Nothing) As Task
             RequireToken(accessToken)
             Await RequestAsync(HttpMethod.Post, "auth/v1/logout?scope=local", Nothing, accessToken, False, cancellationToken).ConfigureAwait(False)
@@ -169,7 +180,7 @@ Namespace Data.Supabase
                                 If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
                                 If errorData.RootElement.TryGetProperty("message", field) Then
                                     Dim identifier = field.GetString()
-                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_RETURN_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_CHANGE_", StringComparison.Ordinal)) Then code = identifier
+                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_RETURN_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_CHANGE_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_STAFF_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_REPORT_", StringComparison.Ordinal)) Then code = identifier
                                     Select Case identifier
                                         Case "Sewa tidak aktif atau sudah diperiksa.", "Sewa harus diperiksa dan dikembalikan dahulu.", "Sewa harus dikembalikan dahulu.", "Tagihan sudah disetujui.", "Transaksi sudah diselesaikan.", "Tagihan harus disetujui Super Admin dahulu." : code = "RG_RETURN_STATE"
                                         Case "Seluruh unit wajib diperiksa sekaligus; yang hilang harus dicatat sebagai hilang.", "Kondisi, biaya rupiah, dan catatan pemeriksaan tidak valid; alat rusak/hilang wajib memiliki biaya." : code = "RG_RETURN_CHECKS"
@@ -186,6 +197,15 @@ Namespace Data.Supabase
                             code = String.Empty
                         End Try
                         Select Case code
+                            Case "RG_REPORT_INPUT" : message = "Periksa jenis laporan, rentang tanggal, dan status."
+                            Case "RG_STAFF_INPUT", "RG_STAFF_AUTH_INPUT" : message = "Periksa email, nama, peran dan password. Password minimal 8 karakter dan harus memenuhi aturan Supabase."
+                            Case "RG_STAFF_EMAIL" : message = "Email sudah terdaftar. Gunakan email lain atau pilih akun yang sudah ada."
+                            Case "RG_STAFF_SELF" : message = "Akun sendiri tidak dapat dinonaktifkan atau diturunkan dari Super Admin."
+                            Case "RG_STAFF_LAST_ADMIN" : message = "Minimal satu Super Admin aktif harus tetap tersedia."
+                            Case "RG_STAFF_VERSION" : message = "Akun sudah diubah petugas lain. Tutup form dan muat ulang daftar."
+                            Case "RG_STAFF_REQUEST" : message = "Permintaan sudah dipakai untuk data lain. Tutup form dan periksa daftar akun."
+                            Case "RG_STAFF_ACCESS" : message = "Akses pengelolaan akun ditolak."
+                            Case "RG_STAFF_SERVER", "RG_STAFF_UNCERTAIN", "RG_STAFF_PENDING" : message = "Hasil perubahan akun belum dapat dikonfirmasi. Periksa simpan dengan permintaan yang sama."
                             Case "RG_CHANGE_STATE" : message = "Status sewa sudah berubah atau tidak sesuai tindakan. Tutup form dan muat ulang Booking."
                             Case "RG_CHANGE_LATE" : message = "Sewa sudah jatuh tempo. Perpanjangan tidak boleh menghapus keterlambatan; lanjutkan pengembalian."
                             Case "RG_CHANGE_DUE", "RG_CHANGE_INPUT" : message = "Jadwal baru harus lebih akhir dari jadwal kembali saat ini. Periksa data tindakan."

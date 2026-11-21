@@ -2,7 +2,7 @@
 
 ## Status
 
-Sepuluh migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian/QC, persetujuan denda dan penyelesaian deposit sudah diaktifkan. Tidak ada fallback ke login demo.
+Sebelas migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian/QC, persetujuan denda dan penyelesaian deposit sudah diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -17,7 +17,7 @@ Tidak diperlukan password database, secret/service-role key atau personal access
 
 ## Akun dan akses
 
-Akun Auth dan profil staf terpisah. Akun baru dibuat secara administratif di Supabase Authentication oleh pemilik; password tetap dipegang pengguna. Profil harus memiliki UUID yang sama dengan Auth, nama tampilan, role dan is_active=true. Admin pertama sudah dipasangkan secara terpisah, tidak ditanam sebagai seed/password dalam migrasi.
+Akun Auth dan profil staf terpisah. Akun baru dapat dibuat Super Admin melalui Kelola User dan Edge Function staff-admin, atau secara administratif melalui dashboard. Password tetap diketik/dipegang pengguna, bukan diberikan kepada agent. Profil harus memiliki UUID yang sama dengan Auth, nama tampilan, role dan is_active=true. Admin pertama sudah dipasangkan secara terpisah, tidak ditanam sebagai seed/password dalam migrasi.
 
 Role yang dikenal: `super_admin`, `front_office`, `warehouse_qc`. Role tidak dikenal, profil tidak ada, atau akun nonaktif ditolak. Peran diperiksa lagi sebelum pembacaan halaman; perubahan peran mengharuskan login ulang. UI tidak mempercayai user_metadata untuk memberi hak akses.
 
@@ -60,7 +60,9 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 
 10. `20261121030042_rantau_booking_changes.sql`: rincian perubahan, preview perpanjangan, dan mutasi terkonfirmasi/idempoten.
 
-Cloud memiliki 17 tabel public dan dua ledger privat. Ada 19 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 18 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+11. `20261121032956_rantau_reports_staff.sql`: snapshot laporan kas/penyewaan, versi profil staf dan ledger pengelolaan akun.
+
+Cloud memiliki 17 tabel public dan tiga ledger privat. Ada 24 wrapper RPC: 22 dapat dipanggil authenticated sesuai peran, staff_admin_finish khusus service_role, dan save_customer lama dinonaktifkan untuk klien. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
@@ -161,3 +163,26 @@ Cancel meminta alasan dan memanggil logika cancel_reservation yang sudah ada dal
 Expire adalah pencatatan per rental terpilih, hanya reserved dan statement_timestamp() > pickup_deadline_at. Event expired mencatat deadline/DP hangus dan rental tetap disimpan. Batas 12 jam tidak berubah karena pelanggan mengabari. Fungsi expire_reservations lama tetap tersedia, tetapi UI tidak menjalankan expiry massal otomatis. Tampilan efektif dan kapasitas sudah mengabaikan reservasi lewat deadline berdasarkan server, terlepas pencatatan event; Muat ulang memperbarui tabel.
 
 Bila respons hilang, form mengunci jadwal/alasan/metode/referensi dan mengulang UUID serta snapshot yang sama. Jangan menerima tambahan uang lagi hanya karena respons hilang. Setelah aplikasi ditutup paksa, cek status/riwayat sebelum tindakan baru; request pending tidak disimpan ke disk. HTTP 401 tidak otomatis mengulang mutasi.
+
+
+## Laporan
+
+ReadReportAsync(query,offset,pageSize,ct) memanggil read_report(p_kind,p_from,p_to,p_status,p_offset,p_limit), admin/front office saja. Jenis cash/rentals. Batas tanggal inklusif di UI dikonversi server ke interval setengah terbuka dari 00:00 Asia/Jakarta sampai 00:00 sehari setelah tanggal akhir. kind/status/pagination diverifikasi server, limit maksimal 10.000. Fungsi STABLE membuat summary dan rows memakai snapshot query sama. Pagination adalah pembacaan baru; ekspor mengambil satu snapshot baru dengan filter sama dan semua rows hingga batas, tidak mengekspor sebagian secara diam-diam.
+
+Kas: rental_receipts = DP + rent_payment + fine_payment, deposit_received dipisah, deposit_refund/rent_refund adalah kas keluar. cash_net = penerimaan sewa/denda + deposit masuk - dua refund. deposit_applied berasal deposit_deductions dan bersifat nonkas, tidak mengurangi cash_net kedua kali. Saldo deposit awal berasal seluruh penerimaan/refund/pemotongan sebelum awal periode; saldo akhir = awal + deposit diterima periode - refund deposit - pemotongan. Kas transaksi ini tidak mencakup modal/biaya operasional dan bukan laba usaha.
+
+Penyewaan memakai pickup_at dan customer name yang hanya dibaca admin/front office. Status efektif saat query, bukan rekonstruksi status historis pada akhir periode. Riwayat cancelled/expired tetap masuk sesuai filter. CSV UTF-8 BOM memakai semicolon, escaping quote/newline, dan perlindungan formula untuk teks; bilangan negatif tetap numerik. Output folder sesuai permintaan pemilik: D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan.
+
+## Pengelolaan staf
+
+ReadStaffAsync memanggil list_staff: email Auth, nama, peran, aktif dan row_version, hanya admin. SaveStaffAsync update memakai update_staff dengan UUID, target dan versi. Self-disable/self-demotion dilarang; minimal admin aktif dipertahankan dan update diserialisasi. is_active=false segera ditolak pemeriksaan profil/RLS pada request berikutnya, meskipun token lama belum kedaluwarsa. Nama sendiri pada header sesi dapat mengikuti sesi login baru.
+
+Create/password memanggil functions/v1/staff-admin. Platform verify_jwt=true dipertahankan pada deployment/config. Handler memverifikasi token ke Auth /user, lalu staff_admin_prepare dengan token pengguna memeriksa profil admin aktif. Kunci SUPABASE_SERVICE_ROLE_KEY hanya dibaca pada runtime Edge Function, tidak pada desktop/repo. Fungsi memakai Auth Admin REST untuk create atau update password; tidak memanggil invite/recovery atau mengirim email. email_confirm=true untuk akun staf yang dibuat admin.
+
+staff_admin_prepare menyimpan hanya requestId/actor/operasi/email/nama/peran/target yang relevan, bukan password atau hash password. Create memakai app_metadata penanda request/actor yang hanya bisa ditulis server. Jika Auth berhasil tetapi respons/finish hilang, prepare berikutnya menemukan akun dengan penanda sama, lalu finish membuat profil sekali. Email Auth yang sudah ada dengan penanda berbeda ditolak; tidak mengambil alih akun lama.
+
+staff_admin_finish hanya diberi EXECUTE ke service_role; desktop tidak dapat menyelesaikan operasi privileged secara langsung. Handler memanggilnya setelah Auth berhasil dan finish memeriksa aktor masih admin aktif. Audit PASSWORD_CHANGED/STAFF_CREATED tidak memuat password. Password tersedia sementara di memori selama request/retry; tidak ditulis ke konfigurasi/ledger/log. Retry UUID yang selesai tidak mengganti password lagi; password baru adalah nilai pada operasi berhasil pertama. Reset password bukan klaim pencabutan semua access token aktif; uji login baru dengan password lama/baru dilakukan dengan logout dahulu.
+
+Auth dan Postgres adalah dua sistem, sehingga create bisa sementara memiliki Auth tanpa staff profile bila finish gagal. Akun tanpa profil tidak dapat masuk aplikasi; gunakan Periksa simpan dengan UUID yang sama. Jangan menghapus Auth/profile/history untuk menutupi hasil yang belum terkonfirmasi. Setelah aplikasi ditutup paksa, periksa daftar dan laporan hasil sebelum mencoba ulang; pending request tidak disimpan di disk.
+
+Deploy sumber supabase/functions/staff-admin dengan verify_jwt=true sesuai config. Tidak perlu mengirim password database atau service key kepada agent. Edge source tidak punya dependensi npm eksternal. Pengujian Node memakai mock; anonymous hosted ditolak HTTP 401. Valid JWT + pembuatan Auth nyata masih perlu konfirmasi manual pemilik melalui aplikasi.

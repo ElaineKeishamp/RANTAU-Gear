@@ -127,6 +127,8 @@ Namespace Forms
             Dim page As UserControl = Nothing
             If repository.IsOnline Then
                 Select Case key
+                    Case "reports" : page = New OnlineReportsPage(repository)
+                    Case "users" : page = New StaffManagementPage(repository, currentUser.AuthUserId)
                     Case "return-qc" : page = New OnlineReturnPage(repository, currentUser)
                     Case "booking" : page = New OnlineBookingPage(repository)
                     Case "catalog" : page = New MasterDataPage(repository)

@@ -138,6 +138,7 @@ Module Checks
             passed += PickupChecks.Run()
             passed += ReturnChecks.Run()
             passed += BookingChangeChecks.Run()
+            passed += ReviewUiChecks.Run()
         End If
         Console.WriteLine(passed.ToString() & " checks passed.")
         If args.Contains("--check") OrElse args.Contains("--ui-check") Then Return

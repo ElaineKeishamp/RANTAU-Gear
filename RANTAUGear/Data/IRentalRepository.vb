@@ -9,6 +9,9 @@ Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        Function ReadReportAsync(query As ReportQuery, offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of ReportSnapshot)
+        Function ReadStaffAsync(offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of StaffPageResult)
+        Function SaveStaffAsync(requestId As Guid, operation As String, record As StaffRecord, password As String, ct As CancellationToken) As Task(Of Guid)
         Function GetBookingChangeDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of BookingChangeDetails)
         Function PreviewExtensionAsync(rentalId As Long, dueAt As DateTimeOffset, ct As CancellationToken) As Task(Of ExtensionQuote)
         Function ChangeBookingAsync(requestId As Guid, rentalId As Long, action As BookingChangeAction, quote As ExtensionQuote, reason As String, method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt)

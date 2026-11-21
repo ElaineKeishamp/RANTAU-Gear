@@ -12,6 +12,15 @@ Imports RantauGear.Models
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function ReadReportAsync(query As ReportQuery, offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of ReportSnapshot) Implements IRentalRepository.ReadReportAsync
+            Throw New NotSupportedException("Gunakan repository online untuk laporan.")
+        End Function
+        Public Function ReadStaffAsync(offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of StaffPageResult) Implements IRentalRepository.ReadStaffAsync
+            Throw New NotSupportedException("Gunakan repository online untuk akun staf.")
+        End Function
+        Public Function SaveStaffAsync(requestId As Guid, operation As String, record As StaffRecord, password As String, ct As CancellationToken) As Task(Of Guid) Implements IRentalRepository.SaveStaffAsync
+            Throw New NotSupportedException("Gunakan repository online untuk akun staf.")
+        End Function
         Public Function GetBookingChangeDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of BookingChangeDetails) Implements IRentalRepository.GetBookingChangeDetailsAsync
             Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
         End Function
