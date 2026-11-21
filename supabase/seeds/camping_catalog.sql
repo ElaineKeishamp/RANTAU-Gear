@@ -1,4 +1,4 @@
--- Catalog awal yang diminta pemilik. Tidak berisi penyewa, akun, atau transaksi.
+-- Katalog camping awal. Tidak berisi pelanggan, akun, atau transaksi.
 -- Tarif demo adalah contoh proyek; nilai penggantian belum dinilai (0), bukan estimasi harga pasar.
 -- Jalankan sebagai admin aktif melalui JWT sub; tidak mengubah record yang sudah ada.
 do $$

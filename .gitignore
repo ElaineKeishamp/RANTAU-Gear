@@ -12,3 +12,11 @@ supabase.local.json
 .supabase/
 supabase/.temp/
 supabase/.branches/
+
+# Local working notes and generated documentation
+/AGENTS.md
+/DESIGN.md
+/docs/*_QA.md
+/docs/PRE_DISTRIBUTION_REVIEW.md
+/scripts/Publish-Windows.ps1
+*.docx

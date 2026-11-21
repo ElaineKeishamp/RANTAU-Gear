@@ -1,4 +1,4 @@
-# Aturan rental yang disepakati
+# Aturan penyewaan
 
 Versi awal desktop VB.NET WinForms .NET 10. Pengguna aplikasi hanya petugas toko. Pelanggan tidak memiliki akun. Tidak menyimpan foto KTP.
 
@@ -29,7 +29,7 @@ Versi awal desktop VB.NET WinForms .NET 10. Pengguna aplikasi hanya petugas toko
 - Denda keterlambatan tetap ditambahkan jika barang juga rusak/hilang.
 - Seluruh unit harus diperiksa sekaligus. Yang hilang dicatat lost, bukan dibiarkan sebagai pengembalian sebagian.
 - Deposit dipakai untuk membayar denda melalui deposit_deductions. Sisa dikembalikan; kekurangan dicatat sebagai pembayaran tambahan. Pemotongan deposit bukan penerimaan uang baru.
-- Penyelesaian uang melalui RPC berarti uang benar-benar diterima/dikembalikan oleh petugas, bukan hanya hasil estimasi. UI nanti harus memberi konfirmasi nominal sebelum memanggilnya.
+- Penyelesaian uang melalui RPC berarti uang benar-benar diterima/dikembalikan oleh petugas, bukan hanya hasil estimasi. Konfirmasi nominal diperlukan sebelum menyimpan penyelesaian.
 - Pembatalan pelanggan mempertahankan DP, rental dan riwayat pembayaran. Pengembalian uang karena kesalahan toko belum memiliki RPC dan tidak boleh disimulasikan sebagai pembatalan pelanggan.
 - Nilai rupiah bulat; persentase yang menghasilkan pecahan dibulatkan ke atas ke rupiah penuh.
 
