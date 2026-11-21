@@ -82,3 +82,5 @@ Mulai dari [panduan pemeriksaan menyeluruh](docs/PRE_DISTRIBUTION_REVIEW.md). Ta
 Laporan ada di menu Laporan. Kas transaksi berdasarkan waktu pembayaran; penyewaan berdasarkan jadwal ambil dan status efektif saat query. Deposit bukan pendapatan, pemotongan deposit bukan kas baru. Ekspor mengambil snapshot baru seluruh hasil filter, bukan hanya halaman tabel; CSV debug disimpan pada D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan; paket Release menyimpan di subfolder Laporan di sebelah aplikasi. Variabel RANTAUGEAR_EXPORT_DIRECTORY dapat mengganti lokasi ekspor.
 
 Kelola User khusus Super Admin. Akun dibuat dengan password yang diketik admin tanpa email undangan; akses diberikan kepada petugas secara pribadi. Jangan mengirim password kepada agent. Pengujian pembuatan akun Auth nyata dan login akun baru masih perlu dicoba sendiri oleh pemilik; agent tidak memegang password pemilik dan tidak meninggalkan akun cloud percobaan.
+
+Hasil pemeriksaan paket Windows: [Publish QA](docs/PUBLISH_QA.md).
