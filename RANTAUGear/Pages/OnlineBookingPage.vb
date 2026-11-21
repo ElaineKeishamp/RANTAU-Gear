@@ -8,6 +8,7 @@ Imports System.Windows.Forms
 Imports RantauGear.Data
 Imports RantauGear.Data.Supabase
 Imports RantauGear.Forms
+Imports RantauGear.Models
 Imports RantauGear.UI
 Namespace Pages
     Public NotInheritable Class OnlineBookingPage
@@ -17,6 +18,7 @@ Namespace Pages
         Private ReadOnly listing As OnlineDataPage
         Private ReadOnly addButton As New RoundedButton With {.Text = "Reservasi baru", .Width = 160, .Height = 38}
         Private ReadOnly pickupButton As New Button With {.Text = "Proses pengambilan", .Width = 200, .Height = 38, .Enabled = False}
+        Private ReadOnly changeButtons As New List(Of Button)()
         Private ReadOnly cancelButton As New Button With {.Text = "Batalkan", .Width = 100, .Height = 38, .Visible = False}
         Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted}
         Private operation As Task = Task.CompletedTask
@@ -32,11 +34,18 @@ Namespace Pages
             Me.repository = repository
             Dock = DockStyle.Fill : BackColor = Theme.Background
             Dim layout As New TableLayoutPanel With {.Dock = DockStyle.Fill, .RowCount = 3, .ColumnCount = 1}
-            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55))
+            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 104))
             layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 54))
             layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
             Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(20, 8, 20, 0)}
-            actions.Controls.Add(addButton) : actions.Controls.Add(pickupButton) : actions.Controls.Add(cancelButton)
+            actions.Controls.Add(addButton) : actions.Controls.Add(pickupButton)
+            For Each action In {BookingChangeAction.Extend, BookingChangeAction.Cancel, BookingChangeAction.Expire}
+                Dim button As New Button With {.Text = BookingChangeDialog.Caption(action), .Tag = action, .Width = 140, .Height = 38, .Enabled = False, .Cursor = Cursors.Hand}
+                changeButtons.Add(button) : actions.Controls.Add(button)
+                Dim chosenAction = action
+                AddHandler button.Click, Sub() StartChange(chosenAction)
+            Next
+            actions.Controls.Add(cancelButton)
             addButton.Cursor = Cursors.Hand : cancelButton.Cursor = Cursors.Hand : pickupButton.Cursor = Cursors.Hand
             layout.Controls.Add(actions, 0, 0)
             message.Padding = New Padding(20, 0, 20, 0)
@@ -45,7 +54,7 @@ Namespace Pages
             listing = New OnlineDataPage(repository, "booking")
             AddHandler listing.SessionExpired, Sub() RaiseEvent SessionExpired(Me, EventArgs.Empty)
             layout.Controls.Add(listing, 0, 2) : Controls.Add(layout)
-            AddHandler listing.RecordSelectionChanged, Sub() pickupButton.Enabled = Not busy AndAlso listing.SelectedRecordId.HasValue
+            AddHandler listing.RecordSelectionChanged, Sub() UpdateActions()
             AddHandler pickupButton.Click, Sub() StartPickup()
             AddHandler addButton.Click, Sub() StartNew()
             AddHandler cancelButton.Click, Sub() activeRequest?.Cancel()
@@ -55,7 +64,7 @@ Namespace Pages
             operation = NewReservationAsync() : Await operation
         End Sub
         Private Async Function NewReservationAsync() As Task
-            busy = True : addButton.Enabled = False : pickupButton.Enabled = False : cancelButton.Visible = True
+            busy = True : UpdateActions() : cancelButton.Visible = True
             Using request As New CancellationTokenSource()
                 activeRequest = request
                 Try
@@ -87,7 +96,7 @@ Namespace Pages
                 Finally
                     activeRequest = Nothing : busy = False
                     If Not IsDisposed Then
-                        addButton.Enabled = True : pickupButton.Enabled = listing.SelectedRecordId.HasValue : cancelButton.Visible = False
+                        UpdateActions() : cancelButton.Visible = False
                     End If
                 End Try
             End Using
@@ -97,7 +106,7 @@ Namespace Pages
             operation = PickupAsync(listing.SelectedRecordId.Value) : Await operation
         End Sub
         Private Async Function PickupAsync(rentalId As Long) As Task
-            busy = True : addButton.Enabled = False : pickupButton.Enabled = False : cancelButton.Visible = True
+            busy = True : UpdateActions() : cancelButton.Visible = True
             Using request As New CancellationTokenSource()
                 activeRequest = request
                 Try
@@ -123,7 +132,50 @@ Namespace Pages
                 Finally
                     activeRequest = Nothing : busy = False
                     If Not IsDisposed Then
-                        addButton.Enabled = True : pickupButton.Enabled = listing.SelectedRecordId.HasValue : cancelButton.Visible = False
+                        UpdateActions() : cancelButton.Visible = False
+                    End If
+                End Try
+            End Using
+        End Function
+        Private Sub UpdateActions()
+            addButton.Enabled = Not busy
+            pickupButton.Enabled = Not busy AndAlso listing.SelectedRecordId.HasValue
+            For Each button In changeButtons
+                button.Enabled = pickupButton.Enabled
+            Next
+        End Sub
+        Private Async Sub StartChange(action As BookingChangeAction)
+            If busy OrElse Not listing.SelectedRecordId.HasValue Then Return
+            operation = ChangeAsync(listing.SelectedRecordId.Value, action) : Await operation
+        End Sub
+        Private Async Function ChangeAsync(rentalId As Long, action As BookingChangeAction) As Task
+            busy = True : UpdateActions() : cancelButton.Visible = True
+            Using request As New CancellationTokenSource()
+                activeRequest = request
+                Try
+                    message.ForeColor = Theme.Muted : message.Text = "Memuat rincian sewa..."
+                    Dim details = Await repository.GetBookingChangeDetailsAsync(rentalId, request.Token)
+                    If IsDisposed OrElse request.IsCancellationRequested Then Return
+                    cancelButton.Visible = False
+                    Using dialog As New BookingChangeDialog(repository, details, action)
+                        dialog.ShowDialog(FindForm()) : Await dialog.PendingOperation
+                        If IsDisposed Then Return
+                        If dialog.SessionExpired Then
+                            RaiseEvent SessionExpired(Me, EventArgs.Empty) : Return
+                        End If
+                        message.Text = If(dialog.Receipt Is Nothing, "Form ditutup. Muat ulang dan periksa riwayat sebelum mengulang tindakan.", details.Number & ": " & BookingChangeDialog.Caption(action) & " tercatat. Riwayat transaksi tetap disimpan.")
+                    End Using
+                    Await listing.LoadPageAsync(0)
+                Catch ex As Exception When TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is SupabaseRequestException OrElse TypeOf ex Is System.Net.Http.HttpRequestException OrElse TypeOf ex Is OperationCanceledException OrElse TypeOf ex Is System.Text.Json.JsonException OrElse TypeOf ex Is IO.InvalidDataException OrElse TypeOf ex Is InvalidOperationException
+                    If Not IsDisposed Then
+                        message.ForeColor = Theme.Maintenance
+                        message.Text = If(TypeOf ex Is SupabaseRequestException OrElse TypeOf ex Is InvalidOperationException, ex.Message, "Rincian belum dapat dimuat atau permintaan dibatalkan. Periksa koneksi dan coba kembali.")
+                        If TypeOf ex Is UnauthorizedAccessException OrElse (TypeOf ex Is SupabaseRequestException AndAlso DirectCast(ex, SupabaseRequestException).StatusCode = Net.HttpStatusCode.Unauthorized) Then RaiseEvent SessionExpired(Me, EventArgs.Empty)
+                    End If
+                Finally
+                    activeRequest = Nothing : busy = False
+                    If Not IsDisposed Then
+                        UpdateActions() : cancelButton.Visible = False
                     End If
                 End Try
             End Using

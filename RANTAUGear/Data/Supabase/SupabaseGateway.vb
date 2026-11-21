@@ -169,7 +169,7 @@ Namespace Data.Supabase
                                 If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
                                 If errorData.RootElement.TryGetProperty("message", field) Then
                                     Dim identifier = field.GetString()
-                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_RETURN_", StringComparison.Ordinal)) Then code = identifier
+                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_RETURN_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_CHANGE_", StringComparison.Ordinal)) Then code = identifier
                                     Select Case identifier
                                         Case "Sewa tidak aktif atau sudah diperiksa.", "Sewa harus diperiksa dan dikembalikan dahulu.", "Sewa harus dikembalikan dahulu.", "Tagihan sudah disetujui.", "Transaksi sudah diselesaikan.", "Tagihan harus disetujui Super Admin dahulu." : code = "RG_RETURN_STATE"
                                         Case "Seluruh unit wajib diperiksa sekaligus; yang hilang harus dicatat sebagai hilang.", "Kondisi, biaya rupiah, dan catatan pemeriksaan tidak valid; alat rusak/hilang wajib memiliki biaya." : code = "RG_RETURN_CHECKS"
@@ -186,6 +186,15 @@ Namespace Data.Supabase
                             code = String.Empty
                         End Try
                         Select Case code
+                            Case "RG_CHANGE_STATE" : message = "Status sewa sudah berubah atau tidak sesuai tindakan. Tutup form dan muat ulang Booking."
+                            Case "RG_CHANGE_LATE" : message = "Sewa sudah jatuh tempo. Perpanjangan tidak boleh menghapus keterlambatan; lanjutkan pengembalian."
+                            Case "RG_CHANGE_DUE", "RG_CHANGE_INPUT" : message = "Jadwal baru harus lebih akhir dari jadwal kembali saat ini. Periksa data tindakan."
+                            Case "RG_CHANGE_STOCK" : message = "Perpanjangan bentrok dengan stok atau reservasi lain. Pilih jadwal kembali yang lebih singkat."
+                            Case "RG_CHANGE_QUOTE" : message = "Jadwal atau tambahan biaya berubah. Tutup form, muat ulang dan hitung biaya kembali sebelum menerima uang."
+                            Case "RG_CHANGE_REASON" : message = "Alasan pembatalan wajib diisi."
+                            Case "RG_CHANGE_EXPIRED" : message = "Batas ambil sudah lewat. Gunakan Catat hangus; DP tetap tercatat."
+                            Case "RG_CHANGE_NOT_EXPIRED" : message = "Batas 12 jam belum lewat. Reservasi belum boleh dihanguskan."
+                            Case "RG_CHANGE_REQUEST" : message = "ID permintaan sudah dipakai untuk tindakan lain. Tutup form dan periksa riwayat."
                             Case "RG_RETURN_STATE" : message = "Tahap pengembalian sudah berubah atau belum memenuhi urutan QC, persetujuan admin, dan penyelesaian uang. Tutup form dan muat ulang daftar."
                             Case "RG_RETURN_CHECKS" : message = "Periksa seluruh unit. Rusak/hilang wajib memiliki biaya positif dan catatan; pengembalian sebagian tidak diizinkan."
                             Case "RG_PICKUP_MISSING", "RG_PICKUP_STATE" : message = "Reservasi tidak ditemukan atau sudah diproses. Tutup form dan muat ulang Booking."

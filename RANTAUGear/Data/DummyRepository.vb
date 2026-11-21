@@ -12,6 +12,15 @@ Imports RantauGear.Models
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function GetBookingChangeDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of BookingChangeDetails) Implements IRentalRepository.GetBookingChangeDetailsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
+        Public Function PreviewExtensionAsync(rentalId As Long, dueAt As DateTimeOffset, ct As CancellationToken) As Task(Of ExtensionQuote) Implements IRentalRepository.PreviewExtensionAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
+        Public Function ChangeBookingAsync(requestId As Guid, rentalId As Long, action As BookingChangeAction, quote As ExtensionQuote, reason As String, method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt) Implements IRentalRepository.ChangeBookingAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
         Public Function GetReturnDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of ReturnDetails) Implements IRentalRepository.GetReturnDetailsAsync
             Throw New NotSupportedException("Gunakan repository online untuk pengembalian async.")
         End Function

@@ -48,6 +48,7 @@ try {
     Invoke-TestSql (Join-Path $PSScriptRoot 'booking_dp.sql')
     Invoke-TestSql (Join-Path $PSScriptRoot 'pickup_ui.sql')
     Invoke-TestSql (Join-Path $PSScriptRoot 'return_ui.sql')
+    Invoke-TestSql (Join-Path $PSScriptRoot 'booking_changes.sql')
     Invoke-TestSql (Join-Path $PSScriptRoot 'concurrency_setup.sql')
     $raceSql=Join-Path $PSScriptRoot 'concurrent_reservation.sql'
     $connection="host=127.0.0.1 port=$port user=rantau_test dbname=rantau_validation application_name=rantau_race_a"

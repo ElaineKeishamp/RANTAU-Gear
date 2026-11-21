@@ -2,7 +2,7 @@
 
 ## Status
 
-Sembilan migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian/QC, persetujuan denda dan penyelesaian deposit sudah diaktifkan. Tidak ada fallback ke login demo.
+Sepuluh migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian/QC, persetujuan denda dan penyelesaian deposit sudah diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -58,7 +58,9 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 
 9. `20261121023808_rantau_return_ui.sql`: register tahap pengembalian dan rincian QC/keuangan sesuai peran.
 
-Cloud memiliki 17 tabel public dan dua ledger privat. Ada 16 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 15 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+10. `20261121030042_rantau_booking_changes.sql`: rincian perubahan, preview perpanjangan, dan mutasi terkonfirmasi/idempoten.
+
+Cloud memiliki 17 tabel public dan dua ledger privat. Ada 19 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 18 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
@@ -142,3 +144,20 @@ Settlement hanya setelah persetujuan: deposit_deductions membayar denda, deposit
 return_register memakai security_invoker dan tidak memuat nama/kontak atau jumlah uang. Tahap dibentuk dari state rental serta event charges_approved/settled. Role front office membuka menu Penyelesaian dengan tombol settlement saja; QC hanya pemeriksaan; admin ketiganya. Mutasi memakai RecordId baris terikat, bukan indeks tabel.
 
 Pada respons simpan terputus, unit/checks/metode/referensi dibekukan dan Periksa simpan memakai UUID sama. Tidak memberikan refund atau menerima kekurangan lagi hanya karena respons hilang. Setelah aplikasi ditutup paksa, muat ulang tahap sebelum tindakan baru; pending request tidak ditulis ke disk. Respons composite diterima sebagai array tepat satu baris/object dengan identitas/state yang diverifikasi.
+
+
+## Perpanjangan, pembatalan dan hangus
+
+GetBookingChangeDetailsAsync memanggil get_booking_change_details(p_rental_id), khusus admin/front office, mengembalikan state tersimpan, server_now, tanggal ambil/due/deadline, snapshot sewa dan DP/deposit yang diterima. Kelayakan awal dialog memakai server_now, bukan jam Windows; mutasi selalu memeriksa lagi di server.
+
+PreviewExtensionAsync memanggil preview_extension(p_rental_id,p_due_at): old_due, new_due, days, rent_amount, additional, deposit. Snapshot tarif sewa/paket dipakai; pembulatan per 24 jam tetap. Tambahan boleh 0 bila durasi baru masih dalam hari tagihan yang sama. Preview menggunakan helper available_quantity yang sudah ada, dengan rental sendiri dikecualikan. Tidak ada penahanan stok atau override.
+
+ChangeBookingAsync memakai change_booking(p_request_id,p_rental_id,p_action,p_due_at,p_reason,p_expected_due,p_expected_additional,p_method,p_reference), action extend/cancel/expire. Semua argumen masuk payload ledger operation booking_change. UUID sama dengan payload/actor berbeda ditolak. Implementasi privat memeriksa staf aktif; wrapper public security_invoker.
+
+Extend mengunci rental serta jenis alat berurutan, seperti extend_rental. Hanya active sebelum jatuh tempo; due baru lebih akhir. Due dasar dan tambahan biaya harus cocok dengan preview terkonfirmasi; perbedaan menyebabkan rollback seluruh tindakan dan pembayaran. Stok diperiksa ulang memakai helper yang sama. Tambahan >0 dicatat rent_payment; 0 tidak membuat payment. Deposit tidak ditambah. Update due, total sewa, event dan request ledger atomik. RPC extend_rental lama tetap ada untuk kompatibilitas; UI memakai change_booking agar nominal terkonfirmasi terjaga.
+
+Cancel meminta alasan dan memanggil logika cancel_reservation yang sudah ada dalam transaksi dengan ledger retry. Hanya reserved sebelum atau tepat pada deadline diperbolehkan; setelah deadline gunakan expiry. Pembatalan pelanggan tidak menambah refund atau menghapus DP. Refund karena kesalahan toko tetap tidak tersedia.
+
+Expire adalah pencatatan per rental terpilih, hanya reserved dan statement_timestamp() > pickup_deadline_at. Event expired mencatat deadline/DP hangus dan rental tetap disimpan. Batas 12 jam tidak berubah karena pelanggan mengabari. Fungsi expire_reservations lama tetap tersedia, tetapi UI tidak menjalankan expiry massal otomatis. Tampilan efektif dan kapasitas sudah mengabaikan reservasi lewat deadline berdasarkan server, terlepas pencatatan event; Muat ulang memperbarui tabel.
+
+Bila respons hilang, form mengunci jadwal/alasan/metode/referensi dan mengulang UUID serta snapshot yang sama. Jangan menerima tambahan uang lagi hanya karena respons hilang. Setelah aplikasi ditutup paksa, cek status/riwayat sebelum tindakan baru; request pending tidak disimpan ke disk. HTTP 401 tidak otomatis mengulang mutasi.

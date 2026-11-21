@@ -255,6 +255,74 @@ Friend NotInheritable Class FakeSupabaseServer
         End Using
     End Function
 
+
+    Public Property ChangeState As String = "active"
+    Public Property ChangeDeadlinePassed As Boolean
+    Public Property ChangeLate As Boolean
+    Public Property ChangeConflict As Boolean
+    Public Property DropChangeReplyOnce As Boolean
+    Public Property RejectChangeCode As String
+    Public Property ChangePaymentCount As Integer
+    Public Property ChangePaid As Decimal
+    Public Property ChangeCancelCount As Integer
+    Public Property ChangeExpireCount As Integer
+    Public Property ChangeDue As DateTimeOffset = DateTimeOffset.Parse("2027-01-02T10:00:00+07:00")
+    Private ReadOnly changePickup As DateTimeOffset = DateTimeOffset.Parse("2027-01-01T10:00:00+07:00")
+    Private changeRent As Decimal = 100000D
+    Public ReadOnly ChangeRequestIds As New List(Of String)()
+    Private ReadOnly changeReplies As New Dictionary(Of String, (Body As String, Reply As Object))()
+    Private ReadOnly changeStates As New Dictionary(Of Long, String)()
+    Private Async Function ChangeRpc(request As HttpRequestMessage, ct As CancellationToken) As Task(Of HttpResponseMessage)
+        If StaffRole <> "super_admin" AndAlso StaffRole <> "front_office" Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+        Using doc = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(ct).ConfigureAwait(False))
+            Dim body = doc.RootElement
+            Dim id = body.GetProperty("p_rental_id").GetInt64()
+            Dim rpc = request.RequestUri.AbsolutePath.Split("/"c).Last()
+            If rpc = "get_booking_change_details" Then
+                Dim deadline = changePickup.AddHours(12)
+                Return Reply(HttpStatusCode.OK, New With {.id = id, .rental_number = "UJI-CHANGE-" & id.ToString(), .customer_name = "Pelanggan uji", .state = ChangeState, .pickup_at = changePickup, .due_at = ChangeDue, .deadline = deadline, .server_now = If(ChangeState = "reserved", If(ChangeDeadlinePassed, deadline.AddMinutes(1), deadline.AddHours(-1)), If(ChangeLate, ChangeDue.AddMinutes(1), ChangeDue.AddHours(-1))), .rent_amount = changeRent, .daily_price = 100000D, .dp_received = 25000D, .deposit_received = If(ChangeState = "active", 100000D, 0D)})
+            End If
+            If rpc = "preview_extension" Then
+                If ChangeConflict Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_STOCK"})
+                If ChangeLate Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_LATE"})
+                Dim newDue = DateTimeOffset.Parse(body.GetProperty("p_due_at").GetString())
+                If newDue <= ChangeDue Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_DUE"})
+                Dim days = CInt(Math.Ceiling((newDue - changePickup).TotalDays))
+                Return Reply(HttpStatusCode.OK, New With {.old_due = ChangeDue, .new_due = newDue, .days = days, .rent_amount = days * 100000D, .additional = days * 100000D - changeRent, .deposit = 100000D})
+            End If
+            Dim uuid = body.GetProperty("p_request_id").GetString()
+            ChangeRequestIds.Add(uuid)
+            If changeReplies.ContainsKey(uuid) Then
+                If changeReplies(uuid).Body <> body.GetRawText() Then Throw New InvalidOperationException("Change retry altered payload")
+                Return Reply(HttpStatusCode.OK, changeReplies(uuid).Reply)
+            End If
+            If RejectChangeCode IsNot Nothing OrElse ChangeConflict Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = If(RejectChangeCode, "RG_CHANGE_STOCK")})
+            Select Case body.GetProperty("p_action").GetString()
+                Case "extend"
+                    If ChangeState <> "active" Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_STATE"})
+                    If DateTimeOffset.Parse(body.GetProperty("p_expected_due").GetString()) <> ChangeDue Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_QUOTE"})
+                    Dim extra = body.GetProperty("p_expected_additional").GetDecimal()
+                    If extra > 0 Then ChangePaymentCount += 1
+                    ChangePaid += extra : changeRent += extra
+                    ChangeDue = DateTimeOffset.Parse(body.GetProperty("p_due_at").GetString())
+                Case "cancel"
+                    If ChangeState <> "reserved" Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_STATE"})
+                    If String.IsNullOrWhiteSpace(body.GetProperty("p_reason").GetString()) Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_REASON"})
+                    ChangeState = "cancelled" : ChangeCancelCount += 1
+                Case "expire"
+                    If ChangeState <> "reserved" OrElse Not ChangeDeadlinePassed Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_CHANGE_NOT_EXPIRED"})
+                    ChangeState = "expired" : ChangeExpireCount += 1
+            End Select
+            changeStates(id) = ChangeState
+            Dim result As Object = New Object() {New With {.id = id, .rental_number = "UJI-CHANGE-" & id.ToString(), .state = ChangeState}}
+            changeReplies(uuid) = (body.GetRawText(), result)
+            If DropChangeReplyOnce Then
+                DropChangeReplyOnce = False : Throw New HttpRequestException("Lost change reply after commit")
+            End If
+            Return Reply(HttpStatusCode.OK, result)
+        End Using
+    End Function
+
     Protected Overrides Async Function SendAsync(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
         If Offline Then Throw New HttpRequestException("Simulated offline fixture")
         Dim path = request.RequestUri.AbsolutePath
@@ -278,6 +346,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If {"/rest/v1/rpc/get_booking_change_details", "/rest/v1/rpc/preview_extension", "/rest/v1/rpc/change_booking"}.Contains(path) Then Return Await ChangeRpc(request, cancellationToken).ConfigureAwait(False)
         If {"/rest/v1/rpc/get_return_details", "/rest/v1/rpc/inspect_return", "/rest/v1/rpc/approve_return_charges", "/rest/v1/rpc/settle_return"}.Contains(path) Then Return Await ReturnRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/get_pickup_details" OrElse path = "/rest/v1/rpc/pickup_reservation" Then Return Await PickupRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/preview_reservation" OrElse path = "/rest/v1/rpc/reserve_with_dp" Then Return Await BookingRpc(request, cancellationToken).ConfigureAwait(False)
@@ -304,7 +373,7 @@ Friend NotInheritable Class FakeSupabaseServer
                     Next
                 Case "/rest/v1/rental_overview", "/rest/v1/reservation_register"
                     For id = 1 To 61
-                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = If(activePickups.Contains(CLng(id)), "active", "reserved"), .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D, .rent_paid = If(activePickups.Contains(CLng(id)), 100000D, 25000D), .deposit_received = If(activePickups.Contains(CLng(id)), 100000D, 0D)})
+                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = If(changeStates.ContainsKey(CLng(id)), changeStates.GetValueOrDefault(CLng(id)), If(activePickups.Contains(CLng(id)), "active", "reserved")), .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D, .rent_paid = If(activePickups.Contains(CLng(id)), 100000D, 25000D), .deposit_received = If(activePickups.Contains(CLng(id)), 100000D, 0D)})
                     Next
                 Case Else
                     Throw New InvalidOperationException("Unexpected fake resource: " & path)
