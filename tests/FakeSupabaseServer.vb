@@ -136,6 +136,48 @@ Friend NotInheritable Class FakeSupabaseServer
         End Using
     End Function
 
+
+    Public Property PickedUpCount As Integer
+    Public Property PickupRentReceived As Decimal
+    Public Property PickupDepositReceived As Decimal
+    Public Property LastPickupRentalId As Long
+    Public Property DropPickupReplyOnce As Boolean
+    Public Property RejectPickupUnit As Boolean
+    Public Property PickupWindowClosed As Boolean
+    Public ReadOnly PickupIds As New List(Of String)()
+    Private ReadOnly pickupReplies As New Dictionary(Of String, (Body As String, Reply As Object))()
+    Private ReadOnly activePickups As New HashSet(Of Long)()
+    Private Async Function PickupRpc(request As HttpRequestMessage, ct As CancellationToken) As Task(Of HttpResponseMessage)
+        If StaffRole <> "super_admin" AndAlso StaffRole <> "front_office" Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+        Using doc = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(ct).ConfigureAwait(False))
+            Dim body = doc.RootElement
+            Dim rentalId = body.GetProperty("p_rental_id").GetInt64()
+            If request.RequestUri.AbsolutePath.EndsWith("get_pickup_details", StringComparison.Ordinal) Then
+                If PickupWindowClosed Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_PICKUP_WINDOW"})
+                If activePickups.Contains(rentalId) Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_PICKUP_STATE"})
+                Return Reply(HttpStatusCode.OK, New With {.id = rentalId, .rental_number = "UJI-PICKUP-" & rentalId.ToString(), .customer_name = "Pelanggan uji", .pickup_at = "2026-11-21T01:00:00Z", .due_at = "2026-11-22T01:00:00Z", .deadline = "2026-11-21T13:00:00Z", .rent_amount = 100000D, .rent_paid = 25000D, .deposit_paid = 0D, .rent_balance = 75000D, .deposit_balance = 100000D, .lines = New Object() {New With {.type_id = 20L, .name = "Tenda uji", .quantity = 1}}, .units = New Object() {New With {.id = 30L, .type_id = 20L, .code = "TND-UJI-01"}, New With {.id = 31L, .type_id = 20L, .code = "TND-UJI-02"}}})
+            End If
+            Dim id = body.GetProperty("p_request_id").GetString()
+            PickupIds.Add(id)
+            If pickupReplies.ContainsKey(id) Then
+                If pickupReplies(id).Body <> body.GetRawText() Then Throw New InvalidOperationException("Pickup retry changed payload")
+                Return Reply(HttpStatusCode.OK, pickupReplies(id).Reply)
+            End If
+            If RejectPickupUnit Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "Semua unit harus siap, lolos QC, dan belum dipinjam."})
+            If PickupWindowClosed Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_PICKUP_WINDOW"})
+            If activePickups.Contains(rentalId) Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_PICKUP_STATE"})
+            If body.GetProperty("p_unit_ids").GetArrayLength() <> 1 Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "Jenis dan jumlah unit harus sama dengan reservasi."})
+            PickedUpCount += 1 : PickupRentReceived += 75000D : PickupDepositReceived += 100000D
+            LastPickupRentalId = rentalId : activePickups.Add(rentalId)
+            Dim result As Object = New Object() {New With {.id = rentalId, .rental_number = "UJI-PICKUP-" & rentalId.ToString(), .state = "active", .rent_amount = 100000D, .down_payment_due = 25000D, .deposit_due = 100000D}}
+            pickupReplies(id) = (body.GetRawText(), result)
+            If DropPickupReplyOnce Then
+                DropPickupReplyOnce = False : Throw New HttpRequestException("Lost pickup reply after commit")
+            End If
+            Return Reply(HttpStatusCode.OK, result)
+        End Using
+    End Function
+
     Protected Overrides Async Function SendAsync(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
         If Offline Then Throw New HttpRequestException("Simulated offline fixture")
         Dim path = request.RequestUri.AbsolutePath
@@ -159,6 +201,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If path = "/rest/v1/rpc/get_pickup_details" OrElse path = "/rest/v1/rpc/pickup_reservation" Then Return Await PickupRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/preview_reservation" OrElse path = "/rest/v1/rpc/reserve_with_dp" Then Return Await BookingRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/save_master_data" Then Return Await SaveMaster(request, cancellationToken).ConfigureAwait(False)
         If path.StartsWith("/rest/v1/", StringComparison.Ordinal) Then
@@ -179,7 +222,7 @@ Friend NotInheritable Class FakeSupabaseServer
                     rows.AddRange(masters(path.Substring("/rest/v1/".Length)).Cast(Of Object)())
                 Case "/rest/v1/rental_overview", "/rest/v1/reservation_register"
                     For id = 1 To 61
-                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = "reserved", .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D})
+                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = If(activePickups.Contains(CLng(id)), "active", "reserved"), .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D, .rent_paid = If(activePickups.Contains(CLng(id)), 100000D, 25000D), .deposit_received = If(activePickups.Contains(CLng(id)), 100000D, 0D)})
                     Next
                 Case Else
                     Throw New InvalidOperationException("Unexpected fake resource: " & path)

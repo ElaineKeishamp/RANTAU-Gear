@@ -135,6 +135,7 @@ Module Checks
             passed += OnlineUiChecks.Run()
             passed += MasterDataChecks.Run()
             passed += BookingChecks.Run()
+            passed += PickupChecks.Run()
         End If
         Console.WriteLine(passed.ToString() & " checks passed.")
         If args.Contains("--check") OrElse args.Contains("--ui-check") Then Return

@@ -169,13 +169,26 @@ Namespace Data.Supabase
                                 If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
                                 If errorData.RootElement.TryGetProperty("message", field) Then
                                     Dim identifier = field.GetString()
-                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal)) Then code = identifier
+                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal)) Then code = identifier
+                                    Select Case identifier
+                                        Case "Reservasi tidak ditemukan." : code = "RG_PICKUP_MISSING"
+                                        Case "Reservasi ini tidak dapat diambil." : code = "RG_PICKUP_STATE"
+                                        Case "Pengambilan harus dalam jadwal ambil, sebelum batas 12 jam, dan sebelum jadwal kembali." : code = "RG_PICKUP_WINDOW"
+                                        Case "Semua unit harus siap, lolos QC, dan belum dipinjam.", "Unit masih dalam jeda pemeriksaan dua jam." : code = "RG_PICKUP_UNITS"
+                                        Case "Jenis dan jumlah unit harus sama dengan reservasi.", "Pilih unit tanpa duplikasi." : code = "RG_PICKUP_QUANTITY"
+                                        Case "Saldo pembayaran perlu diperiksa." : code = "RG_PICKUP_BALANCE"
+                                    End Select
                                 End If
                             End Using
                         Catch ex As JsonException
                             code = String.Empty
                         End Try
                         Select Case code
+                            Case "RG_PICKUP_MISSING", "RG_PICKUP_STATE" : message = "Reservasi tidak ditemukan atau sudah diproses. Tutup form dan muat ulang Booking."
+                            Case "RG_PICKUP_WINDOW" : message = "Pengambilan hanya dari jadwal ambil sampai batas 12 jam, serta sebelum jadwal kembali. Periksa jadwal reservasi."
+                            Case "RG_PICKUP_UNITS" : message = "Unit sudah dipakai atau masih dalam pemeriksaan. Tutup form dan buka pengambilan kembali untuk memperbarui pilihan."
+                            Case "RG_PICKUP_QUANTITY" : message = "Jenis dan jumlah unit yang dipilih harus sama dengan reservasi."
+                            Case "RG_PICKUP_BALANCE" : message = "Saldo pembayaran perlu diperiksa admin. Pengambilan tidak disimpan."
                             Case "RG_BOOKING_INPUT" : message = "Periksa pelanggan, jadwal dan jumlah alat yang dipilih."
                             Case "RG_BOOKING_STOCK" : message = "Stok tidak cukup pada jadwal tersebut. Kurangi jumlah, ganti alat, atau ubah jadwal lalu hitung kembali."
                             Case "RG_BOOKING_CHANGED" : message = "Tarif, aturan atau isi paket berubah. Muat ulang pilihan dan hitung ulang sebelum menerima DP."

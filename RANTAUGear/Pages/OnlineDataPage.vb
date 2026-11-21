@@ -33,6 +33,15 @@ Namespace Pages
         Private loaded As RepositoryPage
         Private loading As Boolean
         Private Const PageSize As Integer = 25
+        Public Event RecordSelectionChanged As EventHandler
+        Public ReadOnly Property SelectedRecordId As Long?
+            Get
+                If loading OrElse grid.CurrentRow Is Nothing OrElse Not grid.Columns.Contains("RecordId") Then Return Nothing
+                Dim value = grid.CurrentRow.Cells("RecordId").Value
+                If value Is Nothing OrElse value Is DBNull.Value Then Return Nothing
+                Return CLng(value)
+            End Get
+        End Property
         Public Event SessionExpired As EventHandler Implements IWorkspacePage.SessionExpired
         Public ReadOnly Property PendingLoad As Task = Task.CompletedTask Implements IWorkspacePage.PendingLoad
 
@@ -63,6 +72,7 @@ Namespace Pages
             layout.Controls.Add(empty, 0, 3)
             grid.Visible = False
             empty.Text = "Memuat data..."
+            AddHandler grid.SelectionChanged, Sub() RaiseEvent RecordSelectionChanged(Me, EventArgs.Empty)
             AddHandler reload.Click, Async Sub() Await LoadPageAsync(If(loaded Is Nothing, 0, loaded.Offset))
             AddHandler first.Click, Async Sub() Await LoadPageAsync(0)
             AddHandler previous.Click, Async Sub() Await LoadPageAsync(Math.Max(0, loaded.Offset - PageSize))
@@ -99,8 +109,12 @@ Namespace Pages
                     Dim old = loaded
                     loaded = result
                     grid.DataSource = result.Rows
+                    If grid.Columns.Contains("RecordId") Then grid.Columns("RecordId").Visible = False
                     old?.Rows.Dispose()
                     For Each column As DataGridViewColumn In grid.Columns
+                        If section = "booking" AndAlso column.Name <> "RecordId" Then
+                            column.MinimumWidth = If(column.ValueType Is GetType(DateTime), 185, If(column.ValueType Is GetType(Decimal), 140, If(column.Name = "Status", 110, 160)))
+                        End If
                         If column.ValueType Is GetType(Decimal) Then
                             column.DefaultCellStyle.Format = "C0"
                             column.DefaultCellStyle.FormatProvider = CultureInfo.GetCultureInfo("id-ID")
@@ -143,6 +157,7 @@ Namespace Pages
 
         Private Sub SetBusy(value As Boolean)
             loading = value
+            RaiseEvent RecordSelectionChanged(Me, EventArgs.Empty)
             reload.Enabled = Not value
             first.Enabled = Not value AndAlso loaded IsNot Nothing AndAlso loaded.Offset > 0
             previous.Enabled = first.Enabled

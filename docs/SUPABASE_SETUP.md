@@ -2,7 +2,7 @@
 
 ## Status
 
-Tujuh migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/deposit dan pengembalian belum diaktifkan. Tidak ada fallback ke login demo.
+Delapan migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian belum diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -54,7 +54,9 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 
 7. `20261121020414_rantau_booking_dp.sql`: preview server, guard nominal DP dan view register security_invoker.
 
-Cloud memiliki 17 tabel public dan dua ledger privat. Ada 14 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 13 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+8. `20261121022025_rantau_pickup_ui.sql`: rincian pengambilan dan jumlah ledger sewa/deposit pada register.
+
+Cloud memiliki 17 tabel public dan dua ledger privat. Ada 15 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 14 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
@@ -110,3 +112,16 @@ Perubahan pelanggan, jadwal, alat, paket, metode atau referensi membatalkan prev
 Respons simpan hilang: payload dibekukan, tombol Periksa simpan memakai UUID sama, sehingga tidak ada DP kedua. Setelah aplikasi ditutup paksa, cek daftar sebelum membuat transaksi ulang; pending request tidak disimpan di disk. HTTP 401 pada mutasi tidak diulang otomatis.
 
 reservation_register adalah view security_invoker dari rental_overview, pelanggan dan jumlah ledger down_payment. DP diterima adalah uang tersimpan, bukan DP yang seharusnya dibayar. RLS pelanggan/pembayaran tetap berlaku dan gudang/QC tidak dapat membaca register pelanggan ini.
+
+
+## Pengambilan dan pembayaran saat ambil
+
+GetPickupDetailsAsync(rentalId, ct) memanggil get_pickup_details(p_rental_id). Server memeriksa staff admin/front office aktif, status reserved, waktu ambil sudah tiba, maksimal batas 12 jam dan sebelum due. Hasil berisi identitas/nomor rental, nama pelanggan, due/deadline, snapshot biaya, uang yang sudah dibayar, rent_balance, deposit_balance, lines menurut name_snapshot dan unit ready tanpa assignment aktif atau buffer pemeriksaan yang belum selesai. Ini pembacaan rincian, bukan penguncian atau penahanan unit.
+
+PickupReservationAsync(requestId,rentalId,unitIds,method,reference,ct) memakai RPC pickup_reservation yang sudah ada. UI memvalidasi jumlah setiap jenis, memisahkan konfirmasi uang dari konfirmasi pemeriksaan unit, dan tidak meminta DP kedua. Nilai rupiah dihitung dari snapshot rental serta ledger pembayaran di server. Biaya master terbaru tidak mengubah tagihan reservasi. Selama reserved, jalur aplikasi tidak mengubah snapshot biaya atau mencatat pelunasan lain; transaksi pengambilan serentak yang kedua ditolak karena status sudah berubah.
+
+RPC memeriksa ulang jadwal, status, jumlah/jenis, unit siap dan buffer. Dalam satu transaksi: mencatat rent_payment dan deposit_received yang masih kurang, membuat unit_assignments, menandai unit rented dan rental active. Tidak ada update unit atau insert pembayaran langsung dari client. Sisa sewa/deposit berasal dari server, tidak ditulis sebagai konstanta.
+
+Saat hasil simpan tidak pasti, form membekukan unit IDs/metode/referensi dan menggunakan UUID yang sama saat Periksa simpan. HTTP 401 tidak mengulang pembayaran otomatis. Setelah aplikasi ditutup paksa, muat ulang daftar/status sebelum tindakan baru. Hasil composite RPC diterima sebagai array satu baris atau object dan diperiksa identitasnya.
+
+Register Booking sekarang juga menampilkan rent_paid (DP + pelunasan sewa) dan deposit_received (penerimaan deposit bruto, belum dikurangi refund di tahap pengembalian). Deposit tetap terpisah dari pendapatan. RecordId tersembunyi terikat ke baris DataTable sehingga sorting tidak memindahkan tindakan ke reservasi lain.

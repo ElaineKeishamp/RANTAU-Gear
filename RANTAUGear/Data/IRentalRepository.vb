@@ -9,6 +9,8 @@ Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        Function GetPickupDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of PickupDetails)
+        Function PickupReservationAsync(requestId As Guid, rentalId As Long, unitIds As List(Of Long), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt)
         Function GetReservationOptionsAsync(ct As CancellationToken) As Task(Of ReservationOptions)
         Function PreviewReservationAsync(request As ReservationRequest, ct As CancellationToken) As Task(Of ReservationQuote)
         Function ReserveWithDpAsync(requestId As Guid, request As ReservationRequest, quote As ReservationQuote, ct As CancellationToken) As Task(Of ReservationReceipt)

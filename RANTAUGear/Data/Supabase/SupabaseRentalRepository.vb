@@ -78,10 +78,10 @@ Namespace Data.Supabase
                     columns = {New ColumnSpec("name", "Nama paket"), New ColumnSpec("daily_price", "Tarif per hari", GetType(Decimal)), New ColumnSpec("is_active", "Status")}
                 Case "booking"
                     resource = "reservation_register"
-                    selection = "id,rental_number,customer_name,pickup_at,due_at,display_state,rent_amount,deposit_due,dp_received"
+                    selection = "id,rental_number,customer_name,pickup_at,due_at,display_state,rent_amount,dp_received,rent_paid,deposit_received"
                     ordering = "pickup_at.desc,id.desc"
-                    description = "Reservasi dan DP diterima dari database. Pengambilan serta deposit dicatat pada tahap berikutnya."
-                    columns = {New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("customer_name", "Pelanggan"), New ColumnSpec("pickup_at", "Jadwal ambil", GetType(DateTime)), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("rent_amount", "Nilai sewa", GetType(Decimal)), New ColumnSpec("dp_received", "DP diterima", GetType(Decimal)), New ColumnSpec("deposit_due", "Deposit saat ambil", GetType(Decimal))}
+                    description = "Reservasi dan pembayaran tersimpan. Pilih baris reservasi untuk memproses pengambilan, sisa sewa dan deposit."
+                    columns = {New ColumnSpec("id", "RecordId", GetType(Long)), New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("customer_name", "Pelanggan"), New ColumnSpec("pickup_at", "Jadwal ambil", GetType(DateTime)), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("rent_amount", "Nilai sewa", GetType(Decimal)), New ColumnSpec("dp_received", "DP diterima", GetType(Decimal)), New ColumnSpec("rent_paid", "Sewa dibayar", GetType(Decimal)), New ColumnSpec("deposit_received", "Deposit diterima", GetType(Decimal))}
                 Case "return-qc", "reports"
                     resource = "rental_overview"
                     selection = "id,rental_number,pickup_at,due_at,display_state,rent_amount,deposit_due"
@@ -145,6 +145,7 @@ Namespace Data.Supabase
 
         Private Shared Function ConvertValue(value As JsonElement, targetType As Type, path As String) As Object
             If value.ValueKind = JsonValueKind.Null Then Return DBNull.Value
+            If targetType Is GetType(Long) Then Return value.GetInt64()
             If targetType Is GetType(Decimal) Then Return value.GetDecimal()
             If targetType Is GetType(DateTime) Then Return DateTimeOffset.Parse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToOffset(TimeSpan.FromHours(7)).DateTime
             If value.ValueKind = JsonValueKind.True OrElse value.ValueKind = JsonValueKind.False Then Return If(value.GetBoolean(), "Aktif", "Nonaktif")
