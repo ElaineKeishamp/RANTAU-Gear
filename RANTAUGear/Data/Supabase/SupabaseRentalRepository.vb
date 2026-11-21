@@ -82,7 +82,13 @@ Namespace Data.Supabase
                     ordering = "pickup_at.desc,id.desc"
                     description = "Reservasi dan pembayaran tersimpan. Pilih baris reservasi untuk memproses pengambilan, sisa sewa dan deposit."
                     columns = {New ColumnSpec("id", "RecordId", GetType(Long)), New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("customer_name", "Pelanggan"), New ColumnSpec("pickup_at", "Jadwal ambil", GetType(DateTime)), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("rent_amount", "Nilai sewa", GetType(Decimal)), New ColumnSpec("dp_received", "DP diterima", GetType(Decimal)), New ColumnSpec("rent_paid", "Sewa dibayar", GetType(Decimal)), New ColumnSpec("deposit_received", "Deposit diterima", GetType(Decimal))}
-                Case "return-qc", "reports"
+                Case "return-qc"
+                    resource = "return_register"
+                    selection = "id,rental_number,due_at,returned_at,display_state,return_phase"
+                    ordering = "due_at.asc,id.asc"
+                    description = "Pengembalian seluruh unit, persetujuan denda admin, lalu penyelesaian deposit. Pilih sewa untuk melanjutkan tahap sesuai peran."
+                    columns = {New ColumnSpec("id", "RecordId", GetType(Long)), New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("returned_at", "Dikembalikan", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("return_phase", "Tahap berikutnya")}
+                Case "reports"
                     resource = "rental_overview"
                     selection = "id,rental_number,pickup_at,due_at,display_state,rent_amount,deposit_due"
                     ordering = "pickup_at.desc,id.desc"
@@ -150,8 +156,12 @@ Namespace Data.Supabase
             If targetType Is GetType(DateTime) Then Return DateTimeOffset.Parse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToOffset(TimeSpan.FromHours(7)).DateTime
             If value.ValueKind = JsonValueKind.True OrElse value.ValueKind = JsonValueKind.False Then Return If(value.GetBoolean(), "Aktif", "Nonaktif")
             Dim text = value.GetString()
-            If path <> "state" AndAlso path <> "display_state" AndAlso path <> "role" Then Return text
+            If path <> "state" AndAlso path <> "display_state" AndAlso path <> "role" AndAlso path <> "return_phase" Then Return text
             Select Case text
+                Case "qc" : Return "Pemeriksaan QC"
+                Case "approval" : Return "Persetujuan admin"
+                Case "payment" : Return "Penyelesaian uang"
+                Case "done" : Return "Selesai"
                 Case "super_admin" : Return "Super Admin"
                 Case "front_office" : Return "Front office"
                 Case "warehouse_qc" : Return "Gudang / QC"

@@ -112,7 +112,7 @@ Namespace Pages
                     If grid.Columns.Contains("RecordId") Then grid.Columns("RecordId").Visible = False
                     old?.Rows.Dispose()
                     For Each column As DataGridViewColumn In grid.Columns
-                        If section = "booking" AndAlso column.Name <> "RecordId" Then
+                        If (section = "booking" OrElse section = "return-qc") AndAlso column.Name <> "RecordId" Then
                             column.MinimumWidth = If(column.ValueType Is GetType(DateTime), 185, If(column.ValueType Is GetType(Decimal), 140, If(column.Name = "Status", 110, 160)))
                         End If
                         If column.ValueType Is GetType(Decimal) Then

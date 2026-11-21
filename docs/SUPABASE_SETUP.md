@@ -2,7 +2,7 @@
 
 ## Status
 
-Delapan migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian belum diaktifkan. Tidak ada fallback ke login demo.
+Sembilan migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/pelunasan/deposit juga sudah diaktifkan; pengembalian/QC, persetujuan denda dan penyelesaian deposit sudah diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -56,7 +56,9 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 
 8. `20261121022025_rantau_pickup_ui.sql`: rincian pengambilan dan jumlah ledger sewa/deposit pada register.
 
-Cloud memiliki 17 tabel public dan dua ledger privat. Ada 15 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 14 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+9. `20261121023808_rantau_return_ui.sql`: register tahap pengembalian dan rincian QC/keuangan sesuai peran.
+
+Cloud memiliki 17 tabel public dan dua ledger privat. Ada 16 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 15 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
@@ -125,3 +127,18 @@ RPC memeriksa ulang jadwal, status, jumlah/jenis, unit siap dan buffer. Dalam sa
 Saat hasil simpan tidak pasti, form membekukan unit IDs/metode/referensi dan menggunakan UUID yang sama saat Periksa simpan. HTTP 401 tidak mengulang pembayaran otomatis. Setelah aplikasi ditutup paksa, muat ulang daftar/status sebelum tindakan baru. Hasil composite RPC diterima sebagai array satu baris atau object dan diperiksa identitasnya.
 
 Register Booking sekarang juga menampilkan rent_paid (DP + pelunasan sewa) dan deposit_received (penerimaan deposit bruto, belum dikurangi refund di tahap pengembalian). Deposit tetap terpisah dari pendapatan. RecordId tersembunyi terikat ke baris DataTable sehingga sorting tidak memindahkan tindakan ke reservasi lain.
+
+
+## Pengembalian, persetujuan dan deposit
+
+GetReturnDetailsAsync(rentalId,ct) memanggil get_return_details(p_rental_id). Identitas rental, jadwal, kondisi setiap unit, acuan nilai ganti dan hasil QC boleh dibaca staff aktif. Role gudang/QC menerima JSON tanpa financial; fungsi tidak membaca customer/ledger uang pada cabang tersebut. Admin/front office menerima deposit, usulan biaya kondisi, denda terlambat, total, pemotongan deposit, refund dan kekurangan. Kolom financial wajib lengkap dan nominal harus nonnegatif, rupiah bulat, serta seimbang sebelum ditampilkan untuk konfirmasi.
+
+ProcessReturnAsync(requestId,rentalId,action,checks,method,reference,ct) memilih RPC yang sudah ada: inspect_return untuk admin/QC, approve_return_charges untuk admin saja, settle_return untuk admin/front office. p_checks menyebut seluruh unit dengan unit_id, condition good/damaged/lost, charge rupiah, notes. Tidak boleh parsial atau duplikasi; baik harus charge 0, rusak/hilang harus charge positif dan catatan. Tidak ada default kondisi baik yang melewati pemeriksaan.
+
+QC mengembalikan rental menjadi returned dan melepas seluruh assignment. Baik menjadi ready dengan buffer, rusak maintenance, hilang lost. Usulan belum menjadi denda sampai admin menyetujui. Admin melihat hasil QC read-only dan denda terlambat tetap ditambahkan. Sesudah returned, biaya keterlambatan memakai returned_at yang tersimpan, tidak bertambah ketika menunggu persetujuan. Snapshot inspection, denda disetujui dan deposit tidak diubah oleh jalur aplikasi pada tahap settlement.
+
+Settlement hanya setelah persetujuan: deposit_deductions membayar denda, deposit_refund adalah uang keluar, fine_payment adalah uang tambahan diterima. UI menyebut nominal serta arah uang secara eksplisit, termasuk jika tidak ada perpindahan uang. Tidak ada pembayaran online otomatis dan tidak ada insert ledger langsung dari desktop.
+
+return_register memakai security_invoker dan tidak memuat nama/kontak atau jumlah uang. Tahap dibentuk dari state rental serta event charges_approved/settled. Role front office membuka menu Penyelesaian dengan tombol settlement saja; QC hanya pemeriksaan; admin ketiganya. Mutasi memakai RecordId baris terikat, bukan indeks tabel.
+
+Pada respons simpan terputus, unit/checks/metode/referensi dibekukan dan Periksa simpan memakai UUID sama. Tidak memberikan refund atau menerima kekurangan lagi hanya karena respons hilang. Setelah aplikasi ditutup paksa, muat ulang tahap sebelum tindakan baru; pending request tidak ditulis ke disk. Respons composite diterima sebagai array tepat satu baris/object dengan identitas/state yang diverifikasi.

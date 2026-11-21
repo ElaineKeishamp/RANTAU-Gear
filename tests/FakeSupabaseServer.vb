@@ -178,6 +178,83 @@ Friend NotInheritable Class FakeSupabaseServer
         End Using
     End Function
 
+
+    Public Property ReturnFinancialIncomplete As Boolean
+    Public Property ReturnFinancialUnbalanced As Boolean
+    Public Property ReturnState As String = "active"
+    Public Property ReturnApproved As Boolean
+    Public Property ReturnSettled As Boolean
+    Public Property ReturnLateCharge As Decimal = 25000D
+    Public Property ReturnProposedCharge As Decimal
+    Public Property ReturnDeposit As Decimal = 100000D
+    Public Property InspectionsCount As Integer
+    Public Property ApprovalsCount As Integer
+    Public Property SettlementsCount As Integer
+    Public Property RefundPaid As Decimal
+    Public Property AdditionalReceived As Decimal
+    Public Property DepositDeducted As Decimal
+    Public Property DropReturnReplyOnce As Boolean
+    Public Property RejectReturnAction As Boolean
+    Public ReadOnly ReturnRequestIds As New List(Of String)()
+    Private ReadOnly returnReplies As New Dictionary(Of String, (Body As String, Rpc As String, Reply As Object))()
+    Private returnUnitChecks As JsonElement?
+    Private Async Function ReturnRpc(request As HttpRequestMessage, ct As CancellationToken) As Task(Of HttpResponseMessage)
+        Using doc = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(ct).ConfigureAwait(False))
+            Dim body = doc.RootElement
+            Dim id = body.GetProperty("p_rental_id").GetInt64()
+            Dim rpc = request.RequestUri.AbsolutePath.Split("/"c).Last()
+            If rpc = "get_return_details" Then
+                Dim units As New List(Of Object)()
+                For index = 0 To 1
+                    Dim check As JsonElement? = Nothing
+                    If returnUnitChecks.HasValue Then
+                        check = returnUnitChecks.Value.EnumerateArray().FirstOrDefault(Function(x) x.GetProperty("unit_id").GetInt64() = 30L + index)
+                    End If
+                    units.Add(New With {.unit_id = 30L + index, .code = "TND-QA-" & index.ToString(), .name = "Tenda uji", .replacement_value = 200000D, .condition = If(check.HasValue, check.GetValueOrDefault().GetProperty("condition").GetString(), Nothing), .charge = If(check.HasValue, check.GetValueOrDefault().GetProperty("charge").GetDecimal(), 0D), .notes = If(check.HasValue, check.GetValueOrDefault().GetProperty("notes").GetString(), "")})
+                Next
+                Dim result As New Dictionary(Of String, Object) From {{"id", id}, {"rental_number", "UJI-RETURN-" & id.ToString()}, {"state", ReturnState}, {"due_at", "2026-11-21T00:00:00Z"}, {"returned_at", If(ReturnState = "returned", "2026-11-21T02:00:00Z", Nothing)}, {"approved", ReturnApproved}, {"settled", ReturnSettled}, {"units", units}}
+                If StaffRole <> "warehouse_qc" Then
+                    Dim total = ReturnLateCharge + ReturnProposedCharge
+                    result("financial") = New With {.deposit = ReturnDeposit, .proposed_charge = ReturnProposedCharge, .late_charge = ReturnLateCharge, .total_charges = total, .deposit_applied = Math.Min(ReturnDeposit, total), .refund = Math.Max(0, ReturnDeposit - total) + If(ReturnFinancialUnbalanced, 1D, 0D), .additional = Math.Max(0, total - ReturnDeposit)}
+                End If
+                If ReturnFinancialIncomplete Then result("financial") = New With {.deposit = 100000D}
+                Return Reply(HttpStatusCode.OK, result)
+            End If
+            Dim allowed = StaffRole = "super_admin" OrElse (rpc = "inspect_return" AndAlso StaffRole = "warehouse_qc") OrElse (rpc = "settle_return" AndAlso StaffRole = "front_office")
+            If Not allowed Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+            Dim uuid = body.GetProperty("p_request_id").GetString()
+            ReturnRequestIds.Add(uuid)
+            If returnReplies.ContainsKey(uuid) Then
+                If returnReplies(uuid).Rpc <> rpc OrElse returnReplies(uuid).Body <> body.GetRawText() Then Throw New InvalidOperationException("Return retry changed payload")
+                Return Reply(HttpStatusCode.OK, returnReplies(uuid).Reply)
+            End If
+            If RejectReturnAction Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_RETURN_STATE"})
+            Select Case rpc
+                Case "inspect_return"
+                    If ReturnState <> "active" Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_RETURN_STATE"})
+                    Dim checks = body.GetProperty("p_checks")
+                    If checks.GetArrayLength() <> 2 Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_RETURN_CHECKS"})
+                    returnUnitChecks = checks.Clone() : ReturnProposedCharge = checks.EnumerateArray().Sum(Function(x) x.GetProperty("charge").GetDecimal())
+                    ReturnState = "returned" : InspectionsCount += 1
+                Case "approve_return_charges"
+                    If ReturnState <> "returned" OrElse ReturnApproved Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_RETURN_STATE"})
+                    ReturnApproved = True : ApprovalsCount += 1
+                Case "settle_return"
+                    If ReturnState <> "returned" OrElse Not ReturnApproved OrElse ReturnSettled Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_RETURN_STATE"})
+                    ReturnSettled = True : SettlementsCount += 1
+                    Dim total = ReturnLateCharge + ReturnProposedCharge
+                    DepositDeducted += Math.Min(ReturnDeposit, total) : RefundPaid += Math.Max(0, ReturnDeposit - total) : AdditionalReceived += Math.Max(0, total - ReturnDeposit)
+                Case Else : Throw New InvalidOperationException("Unknown return RPC")
+            End Select
+            Dim receipt As Object = New Object() {New With {.id = id, .rental_number = "UJI-RETURN-" & id.ToString(), .state = "returned"}}
+            returnReplies(uuid) = (body.GetRawText(), rpc, receipt)
+            If DropReturnReplyOnce Then
+                DropReturnReplyOnce = False : Throw New HttpRequestException("Lost return action reply after commit")
+            End If
+            Return Reply(HttpStatusCode.OK, receipt)
+        End Using
+    End Function
+
     Protected Overrides Async Function SendAsync(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
         If Offline Then Throw New HttpRequestException("Simulated offline fixture")
         Dim path = request.RequestUri.AbsolutePath
@@ -201,6 +278,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If {"/rest/v1/rpc/get_return_details", "/rest/v1/rpc/inspect_return", "/rest/v1/rpc/approve_return_charges", "/rest/v1/rpc/settle_return"}.Contains(path) Then Return Await ReturnRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/get_pickup_details" OrElse path = "/rest/v1/rpc/pickup_reservation" Then Return Await PickupRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/preview_reservation" OrElse path = "/rest/v1/rpc/reserve_with_dp" Then Return Await BookingRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/save_master_data" Then Return Await SaveMaster(request, cancellationToken).ConfigureAwait(False)
@@ -220,6 +298,10 @@ Friend NotInheritable Class FakeSupabaseServer
                     If HasProfile Then rows.Add(New With {.id = StaffId, .display_name = StaffName, .role = StaffRole, .is_active = Active})
                 Case "/rest/v1/categories", "/rest/v1/equipment_types", "/rest/v1/equipment_units", "/rest/v1/packages", "/rest/v1/customers"
                     rows.AddRange(masters(path.Substring("/rest/v1/".Length)).Cast(Of Object)())
+                Case "/rest/v1/return_register"
+                    For id = 1 To 61
+                        rows.Add(New With {.id = id, .rental_number = "UJI-RETURN-" & id.ToString("D3"), .due_at = "2026-11-21T00:00:00Z", .returned_at = If(ReturnState = "returned", "2026-11-21T02:00:00Z", Nothing), .display_state = ReturnState, .return_phase = If(ReturnSettled, "done", If(ReturnApproved, "payment", If(ReturnState = "returned", "approval", "qc")))})
+                    Next
                 Case "/rest/v1/rental_overview", "/rest/v1/reservation_register"
                     For id = 1 To 61
                         rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = If(activePickups.Contains(CLng(id)), "active", "reserved"), .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D, .rent_paid = If(activePickups.Contains(CLng(id)), 100000D, 25000D), .deposit_received = If(activePickups.Contains(CLng(id)), 100000D, 0D)})

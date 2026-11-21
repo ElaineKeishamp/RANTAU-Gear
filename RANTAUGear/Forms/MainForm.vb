@@ -60,6 +60,7 @@ Namespace Forms
             End If
             If currentUser.Role = UserRole.SuperAdmin OrElse currentUser.Role = UserRole.FrontOffice Then AddMenu(menu, "Booking", "booking")
             If currentUser.Role = UserRole.SuperAdmin OrElse currentUser.Role = UserRole.GudangQc Then AddMenu(menu, "Pengembalian / QC", "return-qc")
+            If repository.IsOnline AndAlso currentUser.Role = UserRole.FrontOffice Then AddMenu(menu, "Penyelesaian", "return-qc")
             If currentUser.Role <> UserRole.GudangQc Then AddMenu(menu, "Laporan", "reports")
             If currentUser.Role = UserRole.SuperAdmin Then AddMenu(menu, "Kelola User", "users")
             Dim account As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Theme.Sidebar, .ColumnCount = 1, .RowCount = 3}
@@ -96,7 +97,7 @@ Namespace Forms
             contentPanel.Dock = DockStyle.Fill
             contentPanel.BackColor = Theme.Background
             right.Controls.Add(contentPanel, 0, 1)
-            Dim footer = If(repository.IsOnline, "Supabase  |  Reservasi dan pengambilan online  |  Pengembalian/QC belum diaktifkan", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
+            Dim footer = If(repository.IsOnline, "Supabase  |  Reservasi, pengambilan dan pengembalian online", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
             right.Controls.Add(New Label With {.Dock = DockStyle.Fill, .Text = footer, .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(28, 0, 16, 0), .ForeColor = Theme.Muted, .Font = New Font("Segoe UI", 9)}, 0, 2)
             Navigate("dashboard", "Dashboard")
             AutoScaleDimensions = New SizeF(96, 96)
@@ -126,6 +127,7 @@ Namespace Forms
             Dim page As UserControl = Nothing
             If repository.IsOnline Then
                 Select Case key
+                    Case "return-qc" : page = New OnlineReturnPage(repository, currentUser)
                     Case "booking" : page = New OnlineBookingPage(repository)
                     Case "catalog" : page = New MasterDataPage(repository)
                     Case "packages" : page = New MasterDataPage(repository, MasterDataKind.Package)

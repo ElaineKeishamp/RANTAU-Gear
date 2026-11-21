@@ -19,6 +19,7 @@ Namespace Services
         Public Function CanAccess(user As AppUser, menuKey As String) As Boolean
             If user Is Nothing OrElse Not user.IsActive Then Return False
             If user.Role = UserRole.SuperAdmin Then Return True
+            If user.Role = UserRole.FrontOffice AndAlso repository.IsOnline AndAlso menuKey = "return-qc" Then Return True
             If user.Role = UserRole.FrontOffice Then Return menuKey = "dashboard" OrElse menuKey = "booking" OrElse menuKey = "reports" OrElse menuKey = "customers"
             If user.Role = UserRole.GudangQc Then Return menuKey = "dashboard" OrElse menuKey = "return-qc"
             Return False

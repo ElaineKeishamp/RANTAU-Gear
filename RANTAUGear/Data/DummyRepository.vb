@@ -12,6 +12,12 @@ Imports RantauGear.Models
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function GetReturnDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of ReturnDetails) Implements IRentalRepository.GetReturnDetailsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengembalian async.")
+        End Function
+        Public Function ProcessReturnAsync(requestId As Guid, rentalId As Long, action As ReturnAction, checks As List(Of ReturnCheck), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt) Implements IRentalRepository.ProcessReturnAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengembalian async.")
+        End Function
         Public Function GetPickupDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of PickupDetails) Implements IRentalRepository.GetPickupDetailsAsync
             Throw New NotSupportedException("Gunakan repository online untuk pengambilan async.")
         End Function

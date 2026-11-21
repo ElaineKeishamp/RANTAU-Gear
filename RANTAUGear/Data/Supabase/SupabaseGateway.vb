@@ -169,8 +169,10 @@ Namespace Data.Supabase
                                 If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
                                 If errorData.RootElement.TryGetProperty("message", field) Then
                                     Dim identifier = field.GetString()
-                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal)) Then code = identifier
+                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_PICKUP_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_RETURN_", StringComparison.Ordinal)) Then code = identifier
                                     Select Case identifier
+                                        Case "Sewa tidak aktif atau sudah diperiksa.", "Sewa harus diperiksa dan dikembalikan dahulu.", "Sewa harus dikembalikan dahulu.", "Tagihan sudah disetujui.", "Transaksi sudah diselesaikan.", "Tagihan harus disetujui Super Admin dahulu." : code = "RG_RETURN_STATE"
+                                        Case "Seluruh unit wajib diperiksa sekaligus; yang hilang harus dicatat sebagai hilang.", "Kondisi, biaya rupiah, dan catatan pemeriksaan tidak valid; alat rusak/hilang wajib memiliki biaya." : code = "RG_RETURN_CHECKS"
                                         Case "Reservasi tidak ditemukan." : code = "RG_PICKUP_MISSING"
                                         Case "Reservasi ini tidak dapat diambil." : code = "RG_PICKUP_STATE"
                                         Case "Pengambilan harus dalam jadwal ambil, sebelum batas 12 jam, dan sebelum jadwal kembali." : code = "RG_PICKUP_WINDOW"
@@ -184,6 +186,8 @@ Namespace Data.Supabase
                             code = String.Empty
                         End Try
                         Select Case code
+                            Case "RG_RETURN_STATE" : message = "Tahap pengembalian sudah berubah atau belum memenuhi urutan QC, persetujuan admin, dan penyelesaian uang. Tutup form dan muat ulang daftar."
+                            Case "RG_RETURN_CHECKS" : message = "Periksa seluruh unit. Rusak/hilang wajib memiliki biaya positif dan catatan; pengembalian sebagian tidak diizinkan."
                             Case "RG_PICKUP_MISSING", "RG_PICKUP_STATE" : message = "Reservasi tidak ditemukan atau sudah diproses. Tutup form dan muat ulang Booking."
                             Case "RG_PICKUP_WINDOW" : message = "Pengambilan hanya dari jadwal ambil sampai batas 12 jam, serta sebelum jadwal kembali. Periksa jadwal reservasi."
                             Case "RG_PICKUP_UNITS" : message = "Unit sudah dipakai atau masih dalam pemeriksaan. Tutup form dan buka pengambilan kembali untuk memperbarui pilihan."

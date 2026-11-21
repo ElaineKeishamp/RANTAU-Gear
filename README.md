@@ -24,19 +24,20 @@ Masuk menggunakan email/password akun Supabase yang sudah memiliki `staff_profil
 - Loading, empty state, koneksi gagal, sesi berakhir, dan penanda data sebelumnya ketika refresh gagal.
 - Reservasi alat satuan atau satu paket, preview biaya/stok dari server, konfirmasi DP tunai/transfer, dan daftar DP yang diterima.
 - Pengambilan melalui Booking: pilih unit siap sesuai reservasi, konfirmasi pelunasan/deposit dan pemeriksaan, lalu aktifkan sewa. Daftar menampilkan sewa dibayar dan deposit diterima dari ledger.
+- Pengembalian seluruh unit: QC baik/rusak/hilang, persetujuan denda oleh admin, lalu potong deposit dan catat refund atau pembayaran kekurangan.
 - Refresh token terkoordinasi di memori. Logout membersihkan sesi lokal dan meminta pencabutan sesi server.
 
-Login, pembacaan, dan pengelolaan data master sudah menggunakan Supabase. Reservasi dan pembayaran DP sudah tersedia. Pengambilan, pelunasan sisa sewa dan deposit sudah tersedia. Pengembalian/QC dan penyelesaian denda/deposit belum tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Database dan fungsi transaksinya sudah terpasang, tetapi form transaksi akan dihubungkan pada tahap berikutnya.
+Login, pembacaan, dan pengelolaan data master sudah menggunakan Supabase. Reservasi dan pembayaran DP sudah tersedia. Pengambilan, pelunasan sisa sewa dan deposit sudah tersedia. Pengembalian/QC, persetujuan denda admin dan penyelesaian deposit juga sudah tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Database dan fungsi transaksinya sudah terpasang, tetapi form transaksi akan dihubungkan pada tahap berikutnya.
 
 Tidak dilakukan konversi ke Visual Studio Designer. UI tetap disusun dalam kode sesuai keputusan pemilik.
 
 ## Database Supabase
 
-Proyek `RANTAUGear` sudah memiliki delapan migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
+Proyek `RANTAUGear` sudah memiliki sembilan migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
 
 - [Aturan bisnis](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
 - [Setup dan kontrak integrasi](docs/SUPABASE_SETUP.md).
-- [Pemeriksaan login](docs/ONLINE_LOGIN_QA.md) dan [data master](docs/MASTER_DATA_QA.md), dan [reservasi/DP](docs/BOOKING_DP_QA.md), dan [pengambilan](docs/PICKUP_QA.md).
+- [Pemeriksaan login](docs/ONLINE_LOGIN_QA.md) dan [data master](docs/MASTER_DATA_QA.md), dan [reservasi/DP](docs/BOOKING_DP_QA.md), dan [pengambilan](docs/PICKUP_QA.md), dan [pengembalian/deposit](docs/RETURN_QA.md).
 
 ## Pemeriksaan
 
@@ -62,3 +63,7 @@ Seed supabase/seeds/camping_catalog.sql terpisah dari migrasi, tidak otomatis di
 Untuk mencoba: tambahkan pelanggan melalui Pelanggan, buka Booking > Reservasi baru, pilih alat/paket dan jadwal WIB, klik Hitung biaya, lalu konfirmasi DP hanya setelah uang diterima. Simpan reservasi + DP mencatat keduanya sekaligus. Hindari transaksi percobaan di cloud jika tidak ingin riwayat permanen.
 
 Untuk pengambilan: pilih baris pada Booking, klik Proses pengambilan, centang kode unit sesuai jenis/jumlah reservasi, pilih metode pembayaran, lalu konfirmasi uang diterima dan alat siap diserahkan. Jadwal ambil harus sudah tiba, belum melewati batas 12 jam, dan belum jatuh tempo. DP yang diterima sebelumnya sudah dikurangkan; deposit dicatat terpisah dari pelunasan sewa. Saat respons simpan terputus, gunakan Periksa simpan tanpa meminta uang lagi.
+
+Untuk pengembalian: admin/gudang membuka Pengembalian / QC, memilih sewa lalu Pemeriksaan QC. Isi kondisi semua unit; rusak/hilang membutuhkan biaya rupiah bulat dan catatan. Admin melanjutkan Persetujuan denda. Admin/front office memakai Penyelesaian deposit setelah uang refund diserahkan atau kekurangan diterima. Front office mempunyai menu Penyelesaian; tidak bisa mengubah hasil QC atau menyetujui denda.
+
+Status tabel mengikuti tahap: Pemeriksaan QC, Persetujuan admin, Penyelesaian uang, Selesai. Dikembalikan berarti pemeriksaan fisik selesai; uang baru selesai setelah tahap terakhir. Denda terlambat dihitung sampai waktu kembali tersimpan, bukan selama menunggu persetujuan/pembayaran.
