@@ -27,6 +27,65 @@ Friend NotInheritable Class FakeSupabaseServer
     Public Property RefreshCount As Integer
     Public Property LogoutCount As Integer
     Private access As String = "ACCESS-1"
+    Public Property DropSaveReplyOnce As Boolean
+    Public Property ConflictNextSave As Boolean
+    Public Property SaveCount As Integer
+    Public ReadOnly SaveRequestIds As New List(Of Guid)()
+    Private ReadOnly masters As New Dictionary(Of String, List(Of Dictionary(Of String, Object)))()
+    Private ReadOnly savedRequests As New Dictionary(Of Guid, (Body As String, Id As Long))()
+    Private nextId As Long = 100
+    Public Sub New()
+        masters("categories") = New List(Of Dictionary(Of String, Object)) From {New Dictionary(Of String, Object) From {{"id", 10L}, {"row_version", 1L}, {"name", "Kategori uji"}, {"is_active", True}}}
+        masters("equipment_types") = New List(Of Dictionary(Of String, Object)) From {New Dictionary(Of String, Object) From {{"id", 20L}, {"row_version", 1L}, {"category_id", 10L}, {"name", "reserved"}, {"daily_rate", 100000D}, {"replacement_value", 1000000D}, {"description", ""}, {"is_active", True}, {"categories", New With {.name = "Kategori uji"}}}}
+        masters("equipment_units") = New List(Of Dictionary(Of String, Object)) From {New Dictionary(Of String, Object) From {{"id", 30L}, {"row_version", 1L}, {"equipment_type_id", 20L}, {"code", "TND-TEST"}, {"state", "ready"}, {"notes", ""}, {"equipment_types", New With {.name = "reserved", .daily_rate = 100000D}}}}
+        masters("packages") = New List(Of Dictionary(Of String, Object)) From {New Dictionary(Of String, Object) From {{"id", 40L}, {"row_version", 1L}, {"name", "Paket uji"}, {"daily_price", 80000D}, {"is_active", True}, {"package_components", New Object() {New With {.equipment_type_id = 20L, .quantity = 1, .is_active = True}}}}}
+        masters("customers") = New List(Of Dictionary(Of String, Object)) From {New Dictionary(Of String, Object) From {{"id", 50L}, {"row_version", 1L}, {"name", "Pelanggan uji"}, {"phone", "080000"}, {"address", "Alamat uji"}, {"is_active", True}}}
+    End Sub
+    Public Function MasterCount(entity As String) As Integer
+        Return masters(entity).Count
+    End Function
+    Private Async Function SaveMaster(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
+        SaveCount += 1
+        Using document = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(False))
+            Dim body = document.RootElement
+            Dim entity = body.GetProperty("p_entity").GetString()
+            If StaffRole <> "super_admin" AndAlso Not (StaffRole = "front_office" AndAlso entity = "customers") Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+            Dim requestId = body.GetProperty("p_request_id").GetGuid()
+            SaveRequestIds.Add(requestId)
+            If savedRequests.ContainsKey(requestId) Then
+                If savedRequests(requestId).Body <> body.GetRawText() Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_MASTER_REQUEST"})
+                Return Reply(HttpStatusCode.OK, savedRequests(requestId).Id)
+            End If
+            If ConflictNextSave Then
+                ConflictNextSave = False
+                Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_MASTER_VERSION"})
+            End If
+            Dim row As Dictionary(Of String, Object)
+            If body.GetProperty("p_id").ValueKind = JsonValueKind.Null Then
+                nextId += 1
+                row = New Dictionary(Of String, Object) From {{"id", nextId}, {"row_version", 1L}}
+                masters(entity).Add(row)
+            Else
+                Dim id = body.GetProperty("p_id").GetInt64()
+                row = masters(entity).Single(Function(item) CLng(item("id")) = id)
+                If CLng(row("row_version")) <> body.GetProperty("p_version").GetInt64() Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_MASTER_VERSION"})
+                row("row_version") = CLng(row("row_version")) + 1
+            End If
+            For Each field In body.GetProperty("p_values").EnumerateObject()
+                row(field.Name) = field.Value.Clone()
+            Next
+            If entity = "equipment_types" Then row("categories") = New With {.name = "Kategori uji"}
+            If entity = "equipment_units" Then row("equipment_types") = New With {.name = "reserved", .daily_rate = 100000D}
+            If entity = "packages" Then row("package_components") = body.GetProperty("p_values").GetProperty("components").EnumerateArray().Select(Function(item) New With {.equipment_type_id = item.GetProperty("type_id").GetInt64(), .quantity = item.GetProperty("quantity").GetInt32(), .is_active = True}).ToArray()
+            Dim result = CLng(row("id"))
+            savedRequests(requestId) = (body.GetRawText(), result)
+            If DropSaveReplyOnce Then
+                DropSaveReplyOnce = False
+                Throw New HttpRequestException("Simulated lost reply after commit")
+            End If
+            Return Reply(HttpStatusCode.OK, result)
+        End Using
+    End Function
 
     Private Shared Function Reply(status As HttpStatusCode, value As Object, Optional total As Long? = Nothing, Optional offset As Integer = 0, Optional count As Integer = 0) As HttpResponseMessage
         Dim response As New HttpResponseMessage(status) With {.Content = New StringContent(JsonSerializer.Serialize(value), Encoding.UTF8, "application/json")}
@@ -61,6 +120,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If path = "/rest/v1/rpc/save_master_data" Then Return Await SaveMaster(request, cancellationToken).ConfigureAwait(False)
         If path.StartsWith("/rest/v1/", StringComparison.Ordinal) Then
             If DelayReads Then Await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(False)
             LastReadPath = request.RequestUri.PathAndQuery
@@ -75,10 +135,8 @@ Friend NotInheritable Class FakeSupabaseServer
             Select Case path
                 Case "/rest/v1/staff_profiles"
                     If HasProfile Then rows.Add(New With {.id = StaffId, .display_name = StaffName, .role = StaffRole, .is_active = Active})
-                Case "/rest/v1/equipment_units"
-                    rows.Add(New With {.code = "TND-TEST", .state = "ready", .equipment_types = New With {.name = "reserved", .daily_rate = 100000D}})
-                Case "/rest/v1/packages"
-                    rows.Add(New With {.name = "Paket uji", .daily_price = 80000D, .is_active = True})
+                Case "/rest/v1/categories", "/rest/v1/equipment_types", "/rest/v1/equipment_units", "/rest/v1/packages", "/rest/v1/customers"
+                    rows.AddRange(masters(path.Substring("/rest/v1/".Length)).Cast(Of Object)())
                 Case "/rest/v1/rental_overview"
                     For id = 1 To 61
                         rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = "reserved", .rent_amount = 100000D, .deposit_due = 100000D})

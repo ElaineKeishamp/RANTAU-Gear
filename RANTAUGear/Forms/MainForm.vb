@@ -22,7 +22,7 @@ Namespace Forms
         Private ReadOnly clockLabel As New Label()
         Private ReadOnly clockTimer As New Timer With {.Interval = 1000}
         Private ReadOnly menuButtons As New List(Of Button)()
-        Private ReadOnly onlinePages As New List(Of OnlineDataPage)()
+        Private ReadOnly onlinePages As New List(Of IWorkspacePage)()
         Private activeKey As String = "dashboard"
         Public ReadOnly Property SessionEnded As Boolean
 
@@ -53,6 +53,7 @@ Namespace Forms
             Dim menu As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = Theme.Sidebar}
             sidebar.Controls.Add(menu, 0, 1)
             AddMenu(menu, "Dashboard", "dashboard")
+            If repository.IsOnline AndAlso (currentUser.Role = UserRole.SuperAdmin OrElse currentUser.Role = UserRole.FrontOffice) Then AddMenu(menu, "Pelanggan", "customers")
             If currentUser.Role = UserRole.SuperAdmin Then
                 AddMenu(menu, "Katalog Unit", "catalog")
                 AddMenu(menu, "Paket Bundling", "packages")
@@ -95,7 +96,7 @@ Namespace Forms
             contentPanel.Dock = DockStyle.Fill
             contentPanel.BackColor = Theme.Background
             right.Controls.Add(contentPanel, 0, 1)
-            Dim footer = If(repository.IsOnline, "Supabase  |  Akses baca  |  Perubahan data dan transaksi belum diaktifkan", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
+            Dim footer = If(repository.IsOnline, "Supabase  |  Data master tersimpan online  |  Form transaksi belum diaktifkan", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
             right.Controls.Add(New Label With {.Dock = DockStyle.Fill, .Text = footer, .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(28, 0, 16, 0), .ForeColor = Theme.Muted, .Font = New Font("Segoe UI", 9)}, 0, 2)
             Navigate("dashboard", "Dashboard")
             AutoScaleDimensions = New SizeF(96, 96)
@@ -124,13 +125,18 @@ Namespace Forms
             End While
             Dim page As UserControl = Nothing
             If repository.IsOnline Then
-                Dim online As New OnlineDataPage(repository, key)
+                Select Case key
+                    Case "catalog" : page = New MasterDataPage(repository)
+                    Case "packages" : page = New MasterDataPage(repository, MasterDataKind.Package)
+                    Case "customers" : page = New MasterDataPage(repository, MasterDataKind.Customer)
+                    Case Else : page = New OnlineDataPage(repository, key)
+                End Select
+                Dim online = DirectCast(page, IWorkspacePage)
                 onlinePages.Add(online)
                 AddHandler online.SessionExpired, Sub()
                                                      _SessionEnded = True
                                                      Close()
                                                  End Sub
-                page = online
             Else
                 If key = "dashboard" Then page = New DashboardPage(repository)
                 If key = "catalog" Then page = New CatalogPage(repository)

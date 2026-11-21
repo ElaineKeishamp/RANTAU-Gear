@@ -9,4 +9,4 @@ Direction: a practical outdoor rental desk, retaining the existing forest-green 
 - The dashboard prioritizes overdue equipment and active rentals. Other screens prioritize a table or a form rather than repeating dashboard cards.
 - No new logo, photography, fictional claims, animation, or remote font is needed.
 - Fixed light workspace is intentional for front-desk use. Dark sidebar separates navigation from records.
-- Production UI uses Supabase staff login and read-only data pages. Fixtures stay in the test project. Online mutations and distribution packaging are deferred. UI remains code-based; Designer conversion is not requested.
+- Production UI uses Supabase staff login, online tables, and typed master-data forms. The Pelanggan menu gives admin/front office access to customer records; catalog tabs separate categories, types, and physical units. Fixtures stay in tests. Transaction forms and distribution packaging are deferred. UI remains code-based; Designer conversion is not requested.

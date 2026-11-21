@@ -1,5 +1,7 @@
 # QA login dan repository online
 
+Catatan milestone login, sebelum pengelolaan data master. Validasi terbaru: [MASTER_DATA_QA.md](MASTER_DATA_QA.md).
+
 Tanggal: 21 November 2026. Lingkup: login Supabase dan repository baca async. UI tetap ditulis di VB.NET; tidak dilakukan konversi Designer. Data master dan transaksi online belum diaktifkan.
 
 ## Bukti

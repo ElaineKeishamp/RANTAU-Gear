@@ -2,7 +2,7 @@
 
 ## Status
 
-Lima migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Form transaksi dan pengelolaan data master belum diaktifkan. Tidak ada fallback ke login demo.
+Enam migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Pengelolaan data master sudah diaktifkan; form transaksi belum diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -31,6 +31,8 @@ Semua user pada contoh pengujian adalah fixture lokal/HTTP tiruan. Jangan menera
 - `GetCurrentUserAsync(CancellationToken)` untuk profil staf aktif.
 - `ReadPageAsync(section, offset, pageSize, CancellationToken)` untuk halaman baca yang diizinkan, maksimal 100 baris per permintaan.
 - `SignOutAsync(CancellationToken)` untuk logout.
+- `ReadMasterAsync(kind, offset, pageSize, CancellationToken)` untuk record master bertipe, termasuk row_version.
+- `SaveMasterAsync(requestId, record, CancellationToken)` untuk RPC atomik save_master_data. Tidak ada retry otomatis.
 
 `SupabaseRentalRepository` memakai PostgREST dengan select eksplisit, urutan deterministik dan count=exact. Profile query difilter dengan UUID hasil endpoint Auth `/user`. Nama, nominal dan waktu tidak diambil dari demo. Waktu dikonversi ke WIB. Getter/mutator sinkron lama melempar NotSupportedException jika dipanggil pada repository online; tidak memblokir jaringan melalui .Result/.Wait().
 
@@ -48,14 +50,17 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 4. `20261120151742_rantau_rental_overview.sql`: view status efektif dengan security_invoker.
 5. `20261120151939_rantau_private_rpc_and_indexes.sql`: implementasi privileged dipindah ke schema privat, wrapper API security invoker, indeks foreign key dan RLS ledger idempotensi.
 
-Cloud memiliki 17 tabel public, satu ledger privat dan 11 endpoint RPC. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+6. `20261121014656_rantau_master_data.sql`: editor master, row_version, ledger retry privat, proteksi kapasitas dan komponen paket nonaktif.
+
+Cloud memiliki 17 tabel public dan dua ledger privat. Ada 12 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 11 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
 | RPC | Akses | Fungsi |
 | --- | --- | --- |
 | check_availability | Staff aktif | Kapasitas jenis alat untuk jadwal dan buffer |
-| save_customer | Admin/front office | Tambah/edit pelanggan |
+| save_master_data | Admin; pelanggan juga front office | Tambah/edit master dengan versi dan UUID retry |
+| save_customer | Tidak tersedia untuk klien | Kontrak lama, digantikan save_master_data |
 | create_reservation | Admin/front office | Reservasi dan DP atomik |
 | cancel_reservation | Admin/front office | Pembatalan pelanggan tanpa refund DP |
 | expire_reservations | Admin/front office | Mencatat reservasi lewat batas ambil |
@@ -77,3 +82,16 @@ Pengujian database lokal: `supabase/tests/Test-Database.ps1`; PostgreSQL 18 dipe
 Pengujian aplikasi: lihat README dan `docs/ONLINE_LOGIN_QA.md`. Server HTTP tiruan menguji login, role, refresh, pagination dan kegagalan tanpa kredensial asli. Login akun cloud nyata tetap dicoba sendiri oleh pemilik; hasil yang belum diamati tidak boleh dilaporkan lulus.
 
 Pada deployment cloud, akses anonim dan akun tanpa profil staf telah diuji ditolak; publishable key diterima endpoint Auth. Security advisor tidak melaporkan WARN/ERROR setelah hardening. INFO `requests` RLS tanpa policy disengaja (deny-all dan hanya fungsi owner mengakses); INFO unused_index wajar pada database baru. Referensi: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy ; https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index .
+
+
+## Pengelolaan data master
+
+Urutan pengisian awal: kategori → jenis alat beserta tarif/nilai penggantian → unit fisik dengan kode unik dan konfirmasi siap → paket opsional → pelanggan. Admin membuka Katalog/Paket; admin dan front office membuka Pelanggan. Gudang/QC tetap membaca unit melalui halaman yang diizinkan, tanpa editor master.
+
+save_master_data menerima p_request_id UUID, p_entity (categories/equipment_types/equipment_units/packages/customers), p_id null untuk tambah, p_version null untuk tambah atau row_version terbaru untuk edit, dan p_values object. Semua nominal rupiah bulat. Return berupa ID bigint. Perubahan berhasil dicatat pada audit yang sudah ada; request ledger bersifat privat dan tidak dapat dibaca klien.
+
+Jika row_version berubah, edit ditolak: tutup form, muat ulang, lalu edit kembali. Jika respons simpan terputus, editor mengunci payload dan tombol Simpan ulang memakai UUID serta payload yang sama untuk memeriksa hasil tanpa menduplikasi. UUID tidak boleh dipakai ulang untuk tindakan berbeda. Retry hanya tersimpan sepanjang dialog terbuka; setelah aplikasi ditutup paksa, periksa daftar sebelum menambah ulang. Mutasi tidak diulang otomatis saat 401.
+
+Tidak ada penghapusan master. Gunakan status nonaktif; unit memakai kondisi retired. Kategori dengan jenis aktif tidak dapat dinonaktifkan. Jenis dalam paket aktif juga harus dilepas dari paket terlebih dahulu. Pengurangan kapasitas ditolak bila mengganggu reservasi. Kode/jenis unit yang memiliki riwayat tidak dapat diganti. Status rented/lost mengikuti transaksi, dan mengubah unit menjadi ready memerlukan konfirmasi QC. Harga yang diubah tidak mengubah snapshot transaksi lama. Komponen paket yang dilepas diberi is_active=false; reservasi baru hanya memakai komponen aktif.
+
+Penulisan langsung tabel master oleh anon/authenticated dicabut. Wrapper public adalah security invoker; implementasi private memeriksa akun aktif dan peran sebelum bekerja. Uji fixture dan bootstrap lokal tidak boleh dijalankan pada cloud.

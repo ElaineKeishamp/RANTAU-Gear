@@ -131,7 +131,10 @@ Module Checks
             Field(Of DateTimePicker)(report, "fromDate").Value = DateTime.Today.AddDays(1)
             Check(Field(Of Label)(report, "totals").Text.Contains("Tanggal awal"), "Report rejects reversed date filter")
         End Using
-        If args.Contains("--ui-check") Then passed += OnlineUiChecks.Run()
+        If args.Contains("--ui-check") Then
+            passed += OnlineUiChecks.Run()
+            passed += MasterDataChecks.Run()
+        End If
         Console.WriteLine(passed.ToString() & " checks passed.")
         If args.Contains("--check") OrElse args.Contains("--ui-check") Then Return
         Application.Run(New MainForm(New DummyRepository().GetUsers()(0), New DummyRepository()))

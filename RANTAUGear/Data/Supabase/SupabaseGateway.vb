@@ -40,9 +40,11 @@ Namespace Data.Supabase
     Public NotInheritable Class SupabaseRequestException
         Inherits Exception
         Public ReadOnly Property StatusCode As HttpStatusCode
-        Public Sub New(statusCode As HttpStatusCode, message As String)
+        Public ReadOnly Property ErrorCode As String
+        Public Sub New(statusCode As HttpStatusCode, message As String, Optional errorCode As String = "")
             MyBase.New(message)
             Me.StatusCode = statusCode
+            Me.ErrorCode = errorCode
         End Sub
     End Class
 
@@ -160,7 +162,34 @@ Namespace Data.Supabase
                                 message = "Layanan Supabase tidak dapat menyelesaikan permintaan."
                         End Select
                         ' Server bodies can contain submitted data; only controlled messages reach the UI.
-                        Throw New SupabaseRequestException(response.StatusCode, message)
+                        Dim code As String = String.Empty
+                        Try
+                            Using errorData = JsonDocument.Parse(Await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(False))
+                                Dim field As JsonElement
+                                If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
+                                If errorData.RootElement.TryGetProperty("message", field) Then
+                                    Dim identifier = field.GetString()
+                                    If identifier IsNot Nothing AndAlso identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) Then code = identifier
+                                End If
+                            End Using
+                        Catch ex As JsonException
+                            code = String.Empty
+                        End Try
+                        Select Case code
+                            Case "RG_MASTER_INPUT", "23502", "23514", "22P02", "22003" : message = "Periksa kolom wajib, jumlah, tarif, dan nilai yang diisi."
+                            Case "23505" : message = "Nama atau kode tersebut sudah digunakan. Pilih nama atau kode lain."
+                            Case "RG_MASTER_PARENT" : message = "Pilih kategori atau jenis alat yang aktif."
+                            Case "RG_MASTER_CHILDREN" : message = "Nonaktifkan jenis alat pada kategori ini terlebih dahulu."
+                            Case "RG_MASTER_PACKAGE" : message = "Jenis alat masih dipakai paket aktif. Perbarui paket terlebih dahulu."
+                            Case "RG_MASTER_CAPACITY" : message = "Perubahan mengurangi stok yang dibutuhkan sewa atau reservasi. Selesaikan konflik jadwal terlebih dahulu."
+                            Case "RG_MASTER_HISTORY" : message = "Kode dan jenis unit yang sudah memiliki riwayat transaksi tidak dapat diganti."
+                            Case "RG_MASTER_STATE" : message = "Status disewa atau hilang mengikuti proses rental dan tidak dapat diubah lewat form ini."
+                            Case "RG_MASTER_QC" : message = "Konfirmasi pemeriksaan sebelum menyatakan unit siap."
+                            Case "RG_MASTER_COMPONENTS" : message = "Periksa isi paket: jenis alat harus unik dan jumlahnya positif."
+                            Case "RG_MASTER_VERSION", "RG_MASTER_MISSING" : message = "Data sudah berubah atau tidak ditemukan. Tutup form, muat ulang daftar, lalu buka kembali."
+                            Case "RG_MASTER_REQUEST" : message = "Permintaan sudah digunakan untuk data lain. Tutup form dan periksa daftar sebelum mencoba lagi."
+                        End Select
+                        Throw New SupabaseRequestException(response.StatusCode, message, code)
                     End If
                     Dim result As New Reply()
                     If response.Content IsNot Nothing Then

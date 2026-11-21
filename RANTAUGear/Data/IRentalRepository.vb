@@ -9,6 +9,8 @@ Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage)
+        Function SaveMasterAsync(requestId As Guid, record As MasterRecord, cancellationToken As CancellationToken) As Task(Of Long)
         ReadOnly Property IsOnline As Boolean
         Function GetCurrentUserAsync(cancellationToken As CancellationToken) As Task(Of AppUser)
         Function ReadPageAsync(section As String, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of RepositoryPage)

@@ -16,6 +16,7 @@ Imports RantauGear.UI
 Namespace Pages
     Public NotInheritable Class OnlineDataPage
         Inherits UserControl
+        Implements IWorkspacePage
 
         Private ReadOnly repository As IRentalRepository
         Private ReadOnly section As String
@@ -32,8 +33,8 @@ Namespace Pages
         Private loaded As RepositoryPage
         Private loading As Boolean
         Private Const PageSize As Integer = 25
-        Public Event SessionExpired As EventHandler
-        Public ReadOnly Property PendingLoad As Task = Task.CompletedTask
+        Public Event SessionExpired As EventHandler Implements IWorkspacePage.SessionExpired
+        Public ReadOnly Property PendingLoad As Task = Task.CompletedTask Implements IWorkspacePage.PendingLoad
 
         Public Sub New(repository As IRentalRepository, section As String)
             Me.repository = repository

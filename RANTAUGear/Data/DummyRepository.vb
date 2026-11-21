@@ -12,6 +12,12 @@ Imports RantauGear.Models
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage) Implements IRentalRepository.ReadMasterAsync
+            Throw New NotSupportedException("Data master dikelola pada repository online.")
+        End Function
+        Public Function SaveMasterAsync(requestId As Guid, record As MasterRecord, cancellationToken As CancellationToken) As Task(Of Long) Implements IRentalRepository.SaveMasterAsync
+            Throw New NotSupportedException("Data master dikelola pada repository online.")
+        End Function
         Public ReadOnly Property IsOnline As Boolean Implements IRentalRepository.IsOnline
             Get
                 Return False

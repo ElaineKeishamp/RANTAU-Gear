@@ -16,6 +16,7 @@ Imports RantauGear.Forms
 Imports RantauGear.Models
 Imports RantauGear.Pages
 Imports RantauGear.Services
+Imports RantauGear.UI
 
 Module OnlineUiChecks
     Private Const OutputRoot As String = "D:\elaine\SEM 5\Pemrograman Visual-backup\RANTAUGear-online-ui"
@@ -145,14 +146,14 @@ Module OnlineUiChecks
                     main.Show()
                     Application.DoEvents()
                     Dim buttons = ControlsOf(main).OfType(Of Button)().Where(Function(button) TypeOf button.Tag Is String).ToArray()
-                    Dim expected = {"dashboard", "catalog", "packages", "booking", "return-qc", "reports", "users"}.Where(Function(key) New AuthService(repo).CanAccess(user, key)).OrderBy(Function(key) key)
+                    Dim expected = {"dashboard", "catalog", "packages", "booking", "return-qc", "reports", "users", "customers"}.Where(Function(key) New AuthService(repo).CanAccess(user, key)).OrderBy(Function(key) key)
                     Check(buttons.Select(Function(button) CStr(button.Tag)).OrderBy(Function(key) key).SequenceEqual(expected), "Online navigation matches server role " & role)
                     For Each button In buttons
                         button.PerformClick()
                         Application.DoEvents()
-                        Dim page = ControlsOf(main).OfType(Of OnlineDataPage)().Single()
+                        Dim page = DirectCast(Field(Of Panel)(main, "contentPanel").Controls(0), IWorkspacePage)
                         Wait(page.PendingLoad)
-                        Check(Field(Of DataGridView)(page, "grid").DataSource IsNot Nothing, "Online menu opens data page " & role & "/" & CStr(button.Tag))
+                        Check(ControlsOf(main).OfType(Of DataGridView)().Any(Function(view) view.DataSource IsNot Nothing), "Online menu opens data page " & role & "/" & CStr(button.Tag))
                     Next
                     buttons.Single(Function(button) CStr(button.Tag) = "dashboard").PerformClick()
                     Application.DoEvents()
@@ -191,7 +192,7 @@ Module OnlineUiChecks
                     server.EmptyData = False
                     server.DelayReads = True
                     Dim pendingClose = dashboard.LoadPageAsync(0)
-                    Dim other = buttons.First(Function(button) CStr(button.Tag) <> "dashboard")
+                    Dim other = buttons.First(Function(button) {"booking", "return-qc", "reports", "users"}.Contains(CStr(button.Tag)))
                     other.PerformClick()
                     Application.DoEvents()
                     Dim replacement = ControlsOf(main).OfType(Of OnlineDataPage)().Single()

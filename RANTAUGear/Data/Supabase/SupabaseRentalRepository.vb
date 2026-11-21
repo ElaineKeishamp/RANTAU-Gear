@@ -13,7 +13,7 @@ Imports RantauGear.Models
 Imports RantauGear.Services
 
 Namespace Data.Supabase
-    Public NotInheritable Class SupabaseRentalRepository
+    Partial Public NotInheritable Class SupabaseRentalRepository
         Implements IRentalRepository
 
         Private ReadOnly gateway As SupabaseGateway

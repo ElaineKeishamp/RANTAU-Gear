@@ -19,21 +19,22 @@ Masuk menggunakan email/password akun Supabase yang sudah memiliki `staff_profil
 - Login async dengan validasi identitas server, profil, akun aktif, dan peran.
 - Menu berdasarkan role Super Admin, front office, atau gudang/QC.
 - Pembacaan data online melalui `IRentalRepository.ReadPageAsync`, 25 baris per halaman, jumlah total dari server, muat ulang, dan pembatalan.
+- Tambah/edit/nonaktifkan kategori, jenis alat, paket, dan pelanggan; tambah/edit kondisi unit fisik. Admin mengelola inventaris, front office juga dapat mengelola pelanggan.
 - Daftar transaksi, unit, paket, dan profil staf sesuai hak akses. Tanggal ditampilkan dalam WIB.
 - Loading, empty state, koneksi gagal, sesi berakhir, dan penanda data sebelumnya ketika refresh gagal.
 - Refresh token terkoordinasi di memori. Logout membersihkan sesi lokal dan meminta pencabutan sesi server.
 
-Tahap ini hanya mencakup login dan repository online untuk pembacaan. Tombol perubahan inventaris, reservasi, pembayaran dan QC belum tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Database dan fungsi transaksinya sudah terpasang, tetapi form transaksi akan dihubungkan pada tahap berikutnya.
+Login, pembacaan, dan pengelolaan data master sudah menggunakan Supabase. Form reservasi, pembayaran, dan pengembalian/QC belum tersedia di jalur online. Nilai sewa/deposit pada daftar bukan laporan penerimaan kas. Database dan fungsi transaksinya sudah terpasang, tetapi form transaksi akan dihubungkan pada tahap berikutnya.
 
 Tidak dilakukan konversi ke Visual Studio Designer. UI tetap disusun dalam kode sesuai keputusan pemilik.
 
 ## Database Supabase
 
-Proyek `RANTAUGear` sudah memiliki lima migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
+Proyek `RANTAUGear` sudah memiliki enam migrasi, RLS, audit, serta fungsi transaksi. File migrasi lokal memakai versi yang sama dengan cloud; jangan menjalankan ulang migrasi awal pada proyek yang sudah terpasang.
 
 - [Aturan bisnis](docs/BUSINESS_RULES.md): DP 25%, deposit 100%, buffer dua jam, batas ambil 12 jam, denda harian 25% setelah toleransi satu jam.
 - [Setup dan kontrak integrasi](docs/SUPABASE_SETUP.md).
-- [Pemeriksaan UI dan batas validasi](docs/ONLINE_LOGIN_QA.md).
+- [Pemeriksaan login](docs/ONLINE_LOGIN_QA.md) dan [data master](docs/MASTER_DATA_QA.md).
 
 ## Pemeriksaan
 
