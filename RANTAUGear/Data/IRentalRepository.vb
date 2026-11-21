@@ -3,10 +3,31 @@ Option Explicit On
 Option Infer On
 
 Imports System.Collections.Generic
+Imports System.Threading
+Imports System.Threading.Tasks
 Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        Function ReadReportAsync(query As ReportQuery, offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of ReportSnapshot)
+        Function ReadStaffAsync(offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of StaffPageResult)
+        Function SaveStaffAsync(requestId As Guid, operation As String, record As StaffRecord, password As String, ct As CancellationToken) As Task(Of Guid)
+        Function GetBookingChangeDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of BookingChangeDetails)
+        Function PreviewExtensionAsync(rentalId As Long, dueAt As DateTimeOffset, ct As CancellationToken) As Task(Of ExtensionQuote)
+        Function ChangeBookingAsync(requestId As Guid, rentalId As Long, action As BookingChangeAction, quote As ExtensionQuote, reason As String, method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt)
+        Function GetReturnDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of ReturnDetails)
+        Function ProcessReturnAsync(requestId As Guid, rentalId As Long, action As ReturnAction, checks As List(Of ReturnCheck), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt)
+        Function GetPickupDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of PickupDetails)
+        Function PickupReservationAsync(requestId As Guid, rentalId As Long, unitIds As List(Of Long), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt)
+        Function GetReservationOptionsAsync(ct As CancellationToken) As Task(Of ReservationOptions)
+        Function PreviewReservationAsync(request As ReservationRequest, ct As CancellationToken) As Task(Of ReservationQuote)
+        Function ReserveWithDpAsync(requestId As Guid, request As ReservationRequest, quote As ReservationQuote, ct As CancellationToken) As Task(Of ReservationReceipt)
+        Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage)
+        Function SaveMasterAsync(requestId As Guid, record As MasterRecord, cancellationToken As CancellationToken) As Task(Of Long)
+        ReadOnly Property IsOnline As Boolean
+        Function GetCurrentUserAsync(cancellationToken As CancellationToken) As Task(Of AppUser)
+        Function ReadPageAsync(section As String, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of RepositoryPage)
+        Function SignOutAsync(cancellationToken As CancellationToken) As Task
         Function GetCategories() As List(Of Category)
         Function GetUnits() As List(Of Unit)
         Function GetPackages() As List(Of Package)

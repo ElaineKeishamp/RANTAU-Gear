@@ -7,3 +7,8 @@ artifacts/
 .env
 .env.*
 !.env.example
+
+supabase.local.json
+.supabase/
+supabase/.temp/
+supabase/.branches/

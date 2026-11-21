@@ -5,11 +5,72 @@ Option Infer On
 Imports System
 Imports System.Collections.Generic
 Imports System.Linq
+Imports System.Threading
+Imports System.Threading.Tasks
 Imports RantauGear.Models
 
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function ReadReportAsync(query As ReportQuery, offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of ReportSnapshot) Implements IRentalRepository.ReadReportAsync
+            Throw New NotSupportedException("Gunakan repository online untuk laporan.")
+        End Function
+        Public Function ReadStaffAsync(offset As Integer, pageSize As Integer, ct As CancellationToken) As Task(Of StaffPageResult) Implements IRentalRepository.ReadStaffAsync
+            Throw New NotSupportedException("Gunakan repository online untuk akun staf.")
+        End Function
+        Public Function SaveStaffAsync(requestId As Guid, operation As String, record As StaffRecord, password As String, ct As CancellationToken) As Task(Of Guid) Implements IRentalRepository.SaveStaffAsync
+            Throw New NotSupportedException("Gunakan repository online untuk akun staf.")
+        End Function
+        Public Function GetBookingChangeDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of BookingChangeDetails) Implements IRentalRepository.GetBookingChangeDetailsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
+        Public Function PreviewExtensionAsync(rentalId As Long, dueAt As DateTimeOffset, ct As CancellationToken) As Task(Of ExtensionQuote) Implements IRentalRepository.PreviewExtensionAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
+        Public Function ChangeBookingAsync(requestId As Guid, rentalId As Long, action As BookingChangeAction, quote As ExtensionQuote, reason As String, method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt) Implements IRentalRepository.ChangeBookingAsync
+            Throw New NotSupportedException("Gunakan repository online untuk perubahan sewa.")
+        End Function
+        Public Function GetReturnDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of ReturnDetails) Implements IRentalRepository.GetReturnDetailsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengembalian async.")
+        End Function
+        Public Function ProcessReturnAsync(requestId As Guid, rentalId As Long, action As ReturnAction, checks As List(Of ReturnCheck), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt) Implements IRentalRepository.ProcessReturnAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengembalian async.")
+        End Function
+        Public Function GetPickupDetailsAsync(rentalId As Long, ct As CancellationToken) As Task(Of PickupDetails) Implements IRentalRepository.GetPickupDetailsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengambilan async.")
+        End Function
+        Public Function PickupReservationAsync(requestId As Guid, rentalId As Long, unitIds As List(Of Long), method As String, reference As String, ct As CancellationToken) As Task(Of PickupReceipt) Implements IRentalRepository.PickupReservationAsync
+            Throw New NotSupportedException("Gunakan repository online untuk pengambilan async.")
+        End Function
+        Public Function GetReservationOptionsAsync(ct As CancellationToken) As Task(Of ReservationOptions) Implements IRentalRepository.GetReservationOptionsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
+        Public Function PreviewReservationAsync(request As ReservationRequest, ct As CancellationToken) As Task(Of ReservationQuote) Implements IRentalRepository.PreviewReservationAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
+        Public Function ReserveWithDpAsync(requestId As Guid, request As ReservationRequest, quote As ReservationQuote, ct As CancellationToken) As Task(Of ReservationReceipt) Implements IRentalRepository.ReserveWithDpAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
+        Public Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage) Implements IRentalRepository.ReadMasterAsync
+            Throw New NotSupportedException("Data master dikelola pada repository online.")
+        End Function
+        Public Function SaveMasterAsync(requestId As Guid, record As MasterRecord, cancellationToken As CancellationToken) As Task(Of Long) Implements IRentalRepository.SaveMasterAsync
+            Throw New NotSupportedException("Data master dikelola pada repository online.")
+        End Function
+        Public ReadOnly Property IsOnline As Boolean Implements IRentalRepository.IsOnline
+            Get
+                Return False
+            End Get
+        End Property
+        Public Function GetCurrentUserAsync(cancellationToken As CancellationToken) As Task(Of AppUser) Implements IRentalRepository.GetCurrentUserAsync
+            Throw New NotSupportedException("Repository demo tidak memiliki sesi online.")
+        End Function
+        Public Function ReadPageAsync(section As String, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of RepositoryPage) Implements IRentalRepository.ReadPageAsync
+            Throw New NotSupportedException("Gunakan pembaca demo lokal untuk pratinjau pengujian.")
+        End Function
+        Public Function SignOutAsync(cancellationToken As CancellationToken) As Task Implements IRentalRepository.SignOutAsync
+            Return Task.CompletedTask
+        End Function
 
         Private ReadOnly categories As New List(Of Category)()
         Private ReadOnly units As New List(Of Unit)()
