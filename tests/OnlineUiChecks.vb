@@ -192,7 +192,7 @@ Module OnlineUiChecks
                     server.EmptyData = False
                     server.DelayReads = True
                     Dim pendingClose = dashboard.LoadPageAsync(0)
-                    Dim other = buttons.First(Function(button) {"booking", "return-qc", "reports", "users"}.Contains(CStr(button.Tag)))
+                    Dim other = buttons.First(Function(button) {"return-qc", "reports", "users"}.Contains(CStr(button.Tag)))
                     other.PerformClick()
                     Application.DoEvents()
                     Dim replacement = ControlsOf(main).OfType(Of OnlineDataPage)().Single()

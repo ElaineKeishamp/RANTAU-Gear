@@ -97,6 +97,45 @@ Friend NotInheritable Class FakeSupabaseServer
         Return Reply(HttpStatusCode.OK, New With {.access_token = access, .refresh_token = "REFRESH-" & (RefreshCount + 1).ToString(), .expires_in = 3600})
     End Function
 
+
+    Public Property ObjectReservationReply As Boolean
+    Public Property ReservationCount As Integer
+    Public Property DpCount As Integer
+    Public Property DropReservationReplyOnce As Boolean
+    Public Property RejectBookingStock As Boolean
+    Public Property ChangeBookingPrice As Boolean
+    Public ReadOnly ReservationIds As New List(Of String)()
+    Private ReadOnly reservationReplies As New Dictionary(Of String, (Body As String, Receipt As Object))()
+    Private Async Function BookingRpc(request As HttpRequestMessage, ct As CancellationToken) As Task(Of HttpResponseMessage)
+        If StaffRole <> "super_admin" AndAlso StaffRole <> "front_office" Then Return Reply(HttpStatusCode.Forbidden, New With {.code = "42501"})
+        Using document = JsonDocument.Parse(Await request.Content.ReadAsStringAsync(ct).ConfigureAwait(False))
+            Dim body = document.RootElement
+            If request.RequestUri.AbsolutePath.EndsWith("preview_reservation", StringComparison.Ordinal) Then
+                If RejectBookingStock Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_BOOKING_STOCK"})
+                Dim days = Math.Max(1, CInt(Math.Ceiling((DateTimeOffset.Parse(body.GetProperty("p_due_at").GetString()) - DateTimeOffset.Parse(body.GetProperty("p_pickup_at").GetString())).TotalDays)))
+                Dim daily = If(body.GetProperty("p_package_id").ValueKind = JsonValueKind.Null, body.GetProperty("p_lines").EnumerateArray().Sum(Function(x) x.GetProperty("quantity").GetInt32()) * 100000D, 50000D)
+                Return Reply(HttpStatusCode.OK, New With {.daily_price = daily, .rental_days = days, .rent_amount = daily * days, .down_payment_due = Math.Ceiling(daily * days / 4D), .deposit_due = daily * days, .pickup_deadline_at = DateTimeOffset.Parse(body.GetProperty("p_pickup_at").GetString()).AddHours(12)})
+            End If
+            Dim id = body.GetProperty("p_request_id").GetString()
+            ReservationIds.Add(id)
+            If reservationReplies.ContainsKey(id) Then
+                If reservationReplies(id).Body <> body.GetRawText() Then Throw New InvalidOperationException("Retry changed payment payload")
+                Return Reply(HttpStatusCode.OK, reservationReplies(id).Receipt)
+            End If
+            If RejectBookingStock Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_BOOKING_STOCK"})
+            If ChangeBookingPrice Then Return Reply(HttpStatusCode.BadRequest, New With {.code = "P0001", .message = "RG_BOOKING_CHANGED"})
+            ReservationCount += 1 : DpCount += 1
+            Dim receipt = New With {.id = 900L + ReservationCount, .rental_number = "UJI-RESERVASI-" & ReservationCount.ToString(), .rent_amount = body.GetProperty("p_expected_rent").GetDecimal(), .down_payment_due = body.GetProperty("p_expected_dp").GetDecimal(), .deposit_due = body.GetProperty("p_expected_deposit").GetDecimal()}
+            Dim payload As Object = If(ObjectReservationReply, DirectCast(receipt, Object), New Object() {receipt})
+            reservationReplies(id) = (body.GetRawText(), payload)
+            If DropReservationReplyOnce Then
+                DropReservationReplyOnce = False
+                Throw New HttpRequestException("Lost reservation reply after commit")
+            End If
+            Return Reply(HttpStatusCode.OK, payload)
+        End Using
+    End Function
+
     Protected Overrides Async Function SendAsync(request As HttpRequestMessage, cancellationToken As CancellationToken) As Task(Of HttpResponseMessage)
         If Offline Then Throw New HttpRequestException("Simulated offline fixture")
         Dim path = request.RequestUri.AbsolutePath
@@ -120,6 +159,7 @@ Friend NotInheritable Class FakeSupabaseServer
             access = String.Empty
             Return New HttpResponseMessage(HttpStatusCode.NoContent)
         End If
+        If path = "/rest/v1/rpc/preview_reservation" OrElse path = "/rest/v1/rpc/reserve_with_dp" Then Return Await BookingRpc(request, cancellationToken).ConfigureAwait(False)
         If path = "/rest/v1/rpc/save_master_data" Then Return Await SaveMaster(request, cancellationToken).ConfigureAwait(False)
         If path.StartsWith("/rest/v1/", StringComparison.Ordinal) Then
             If DelayReads Then Await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(False)
@@ -137,9 +177,9 @@ Friend NotInheritable Class FakeSupabaseServer
                     If HasProfile Then rows.Add(New With {.id = StaffId, .display_name = StaffName, .role = StaffRole, .is_active = Active})
                 Case "/rest/v1/categories", "/rest/v1/equipment_types", "/rest/v1/equipment_units", "/rest/v1/packages", "/rest/v1/customers"
                     rows.AddRange(masters(path.Substring("/rest/v1/".Length)).Cast(Of Object)())
-                Case "/rest/v1/rental_overview"
+                Case "/rest/v1/rental_overview", "/rest/v1/reservation_register"
                     For id = 1 To 61
-                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = "reserved", .rent_amount = 100000D, .deposit_due = 100000D})
+                        rows.Add(New With {.id = id, .rental_number = "UJI-" & id.ToString("D3"), .pickup_at = "2026-11-21T03:00:00Z", .due_at = "2026-11-22T03:00:00Z", .display_state = "reserved", .rent_amount = 100000D, .deposit_due = 100000D, .customer_name = "Pelanggan uji", .dp_received = 25000D})
                     Next
                 Case Else
                     Throw New InvalidOperationException("Unexpected fake resource: " & path)

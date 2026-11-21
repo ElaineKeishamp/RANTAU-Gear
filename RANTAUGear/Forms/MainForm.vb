@@ -96,7 +96,7 @@ Namespace Forms
             contentPanel.Dock = DockStyle.Fill
             contentPanel.BackColor = Theme.Background
             right.Controls.Add(contentPanel, 0, 1)
-            Dim footer = If(repository.IsOnline, "Supabase  |  Data master tersimpan online  |  Form transaksi belum diaktifkan", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
+            Dim footer = If(repository.IsOnline, "Supabase  |  Data master dan reservasi online  |  Pengambilan/QC belum diaktifkan", "Pratinjau demo lokal untuk pengujian; perubahan tidak disimpan online")
             right.Controls.Add(New Label With {.Dock = DockStyle.Fill, .Text = footer, .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(28, 0, 16, 0), .ForeColor = Theme.Muted, .Font = New Font("Segoe UI", 9)}, 0, 2)
             Navigate("dashboard", "Dashboard")
             AutoScaleDimensions = New SizeF(96, 96)
@@ -126,6 +126,7 @@ Namespace Forms
             Dim page As UserControl = Nothing
             If repository.IsOnline Then
                 Select Case key
+                    Case "booking" : page = New OnlineBookingPage(repository)
                     Case "catalog" : page = New MasterDataPage(repository)
                     Case "packages" : page = New MasterDataPage(repository, MasterDataKind.Package)
                     Case "customers" : page = New MasterDataPage(repository, MasterDataKind.Customer)

@@ -9,6 +9,9 @@ Imports RantauGear.Models
 
 Namespace Data
     Public Interface IRentalRepository
+        Function GetReservationOptionsAsync(ct As CancellationToken) As Task(Of ReservationOptions)
+        Function PreviewReservationAsync(request As ReservationRequest, ct As CancellationToken) As Task(Of ReservationQuote)
+        Function ReserveWithDpAsync(requestId As Guid, request As ReservationRequest, quote As ReservationQuote, ct As CancellationToken) As Task(Of ReservationReceipt)
         Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage)
         Function SaveMasterAsync(requestId As Guid, record As MasterRecord, cancellationToken As CancellationToken) As Task(Of Long)
         ReadOnly Property IsOnline As Boolean

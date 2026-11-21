@@ -2,7 +2,7 @@
 
 ## Status
 
-Enam migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Pengelolaan data master sudah diaktifkan; form transaksi belum diaktifkan. Tidak ada fallback ke login demo.
+Tujuh migrasi telah diterapkan ke proyek RANTAUGear `zlwkpiuozuxxynyenhww`, PostgreSQL 17. Login utama sekarang memakai Supabase Auth. Profil/peran staf dibaca dari server; repository async dan halaman baca online sudah terhubung. Master, reservasi dan pembayaran DP sudah diaktifkan; pengambilan/deposit dan pengembalian belum diaktifkan. Tidak ada fallback ke login demo.
 
 UI tetap berbasis kode; konversi Designer tidak dikerjakan.
 
@@ -52,7 +52,9 @@ Logout selalu menghapus sesi lokal, termasuk saat jaringan gagal. UI memberitahu
 
 6. `20261121014656_rantau_master_data.sql`: editor master, row_version, ledger retry privat, proteksi kapasitas dan komponen paket nonaktif.
 
-Cloud memiliki 17 tabel public dan dua ledger privat. Ada 12 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 11 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
+7. `20261121020414_rantau_booking_dp.sql`: preview server, guard nominal DP dan view register security_invoker.
+
+Cloud memiliki 17 tabel public dan dua ledger privat. Ada 14 wrapper RPC; save_customer lama dinonaktifkan untuk klien, sehingga 13 dapat dipanggil authenticated sesuai peran. Riwayat migrasi lokal/cloud sudah sinkron. Perubahan schema berikutnya memakai migrasi baru; jangan mengulang migrasi awal. Jika menggunakan CLI, periksa versi/--help, pilih target hosted/linked secara eksplisit dan review dry-run. Pemilik melakukan autentikasi sendiri tanpa mengirim rahasia.
 
 ## Kontrak RPC transaksi untuk tahap berikutnya
 
@@ -73,7 +75,7 @@ Cloud memiliki 17 tabel public dan dua ledger privat. Ada 12 wrapper RPC; save_c
 
 p_lines: [{"type_id":1,"quantity":2}]. p_checks: [{"unit_id":1,"condition":"good","charge":0,"notes":""}]. Kondisi damaged/lost wajib charge positif dan catatan. Metode cash/transfer. Waktu dikirim ISO 8601 dengan offset atau UTC.
 
-Penyimpanan kapasitas mengunci baris jenis alat dalam urutan ID dan memeriksa ulang stok di server. Endpoint inventaris berikutnya harus memakai pola penguncian yang sama. CRUD inventaris/profil, koreksi ledger dan refund karena kesalahan toko masih memerlukan endpoint terkontrol sebelum UI penulisannya dibuka.
+Penyimpanan kapasitas mengunci baris jenis alat dalam urutan ID dan memeriksa ulang stok di server. Endpoint inventaris berikutnya harus memakai pola penguncian yang sama. Pengelolaan profil, koreksi ledger dan refund karena kesalahan toko masih memerlukan endpoint terkontrol sebelum UI penulisannya dibuka.
 
 ## Validasi
 
@@ -81,7 +83,7 @@ Pengujian database lokal: `supabase/tests/Test-Database.ps1`; PostgreSQL 18 dipe
 
 Pengujian aplikasi: lihat README dan `docs/ONLINE_LOGIN_QA.md`. Server HTTP tiruan menguji login, role, refresh, pagination dan kegagalan tanpa kredensial asli. Login akun cloud nyata tetap dicoba sendiri oleh pemilik; hasil yang belum diamati tidak boleh dilaporkan lulus.
 
-Pada deployment cloud, akses anonim dan akun tanpa profil staf telah diuji ditolak; publishable key diterima endpoint Auth. Security advisor tidak melaporkan WARN/ERROR setelah hardening. INFO `requests` RLS tanpa policy disengaja (deny-all dan hanya fungsi owner mengakses); INFO unused_index wajar pada database baru. Referensi: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy ; https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index .
+Pada deployment cloud, akses anonim dan akun tanpa profil staf telah diuji ditolak; publishable key diterima endpoint Auth. Tidak ada ERROR advisor schema; WARN Auth leaked-password protection belum aktif, detail pada BOOKING_DP_QA.md. INFO `requests` RLS tanpa policy disengaja (deny-all dan hanya fungsi owner mengakses); INFO unused_index wajar pada database baru. Referensi: https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy ; https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index .
 
 
 ## Pengelolaan data master
@@ -95,3 +97,16 @@ Jika row_version berubah, edit ditolak: tutup form, muat ulang, lalu edit kembal
 Tidak ada penghapusan master. Gunakan status nonaktif; unit memakai kondisi retired. Kategori dengan jenis aktif tidak dapat dinonaktifkan. Jenis dalam paket aktif juga harus dilepas dari paket terlebih dahulu. Pengurangan kapasitas ditolak bila mengganggu reservasi. Kode/jenis unit yang memiliki riwayat tidak dapat diganti. Status rented/lost mengikuti transaksi, dan mengubah unit menjadi ready memerlukan konfirmasi QC. Harga yang diubah tidak mengubah snapshot transaksi lama. Komponen paket yang dilepas diberi is_active=false; reservasi baru hanya memakai komponen aktif.
 
 Penulisan langsung tabel master oleh anon/authenticated dicabut. Wrapper public adalah security invoker; implementasi private memeriksa akun aktif dan peran sebelum bekerja. Uji fixture dan bootstrap lokal tidak boleh dijalankan pada cloud.
+
+
+## Kontrak reservasi dan DP
+
+GetReservationOptionsAsync mengambil semua halaman pelanggan/jenis/paket aktif untuk admin/front office, tanpa endpoint editor master yang khusus admin. PreviewReservationAsync memanggil preview_reservation(p_pickup_at,p_due_at,p_lines,p_package_id), menghasilkan daily_price, rental_days, rent_amount, down_payment_due, deposit_due, pickup_deadline_at. Preview memakai helper kapasitas yang sudah ada, tanpa menahan stok.
+
+ReserveWithDpAsync memanggil reserve_with_dp(p_request_id,p_customer_id,p_pickup_at,p_due_at,p_lines,p_method,p_reference,p_package_id,p_expected_rent,p_expected_dp,p_expected_deposit). Wrapper memanggil logika create_reservation, lalu membandingkan nominal terhadap ringkasan terkonfirmasi. Perbedaan harga/aturan menyebabkan seluruh rental, DP, event dan ledger rollback. Kapasitas tetap diperiksa atomik dengan penguncian yang sudah ada, tanpa override baru.
+
+Perubahan pelanggan, jadwal, alat, paket, metode atau referensi membatalkan preview dan konfirmasi uang. UI hanya menyimpan setelah checkbox DP diterima dicentang. Paket satu bundel dengan isi tetap; beberapa paket sekaligus ditunda. Alat satuan boleh beberapa jenis/jumlah. Waktu dikirim offset WIB +07:00 secara eksplisit.
+
+Respons simpan hilang: payload dibekukan, tombol Periksa simpan memakai UUID sama, sehingga tidak ada DP kedua. Setelah aplikasi ditutup paksa, cek daftar sebelum membuat transaksi ulang; pending request tidak disimpan di disk. HTTP 401 pada mutasi tidak diulang otomatis.
+
+reservation_register adalah view security_invoker dari rental_overview, pelanggan dan jumlah ledger down_payment. DP diterima adalah uang tersimpan, bukan DP yang seharusnya dibayar. RLS pelanggan/pembayaran tetap berlaku dan gudang/QC tidak dapat membaca register pelanggan ini.

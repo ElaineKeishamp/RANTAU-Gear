@@ -169,13 +169,16 @@ Namespace Data.Supabase
                                 If errorData.RootElement.TryGetProperty("code", field) Then code = field.GetString()
                                 If errorData.RootElement.TryGetProperty("message", field) Then
                                     Dim identifier = field.GetString()
-                                    If identifier IsNot Nothing AndAlso identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) Then code = identifier
+                                    If identifier IsNot Nothing AndAlso (identifier.StartsWith("RG_MASTER_", StringComparison.Ordinal) OrElse identifier.StartsWith("RG_BOOKING_", StringComparison.Ordinal)) Then code = identifier
                                 End If
                             End Using
                         Catch ex As JsonException
                             code = String.Empty
                         End Try
                         Select Case code
+                            Case "RG_BOOKING_INPUT" : message = "Periksa pelanggan, jadwal dan jumlah alat yang dipilih."
+                            Case "RG_BOOKING_STOCK" : message = "Stok tidak cukup pada jadwal tersebut. Kurangi jumlah, ganti alat, atau ubah jadwal lalu hitung kembali."
+                            Case "RG_BOOKING_CHANGED" : message = "Tarif, aturan atau isi paket berubah. Muat ulang pilihan dan hitung ulang sebelum menerima DP."
                             Case "RG_MASTER_INPUT", "23502", "23514", "22P02", "22003" : message = "Periksa kolom wajib, jumlah, tarif, dan nilai yang diisi."
                             Case "23505" : message = "Nama atau kode tersebut sudah digunakan. Pilih nama atau kode lain."
                             Case "RG_MASTER_PARENT" : message = "Pilih kategori atau jenis alat yang aktif."

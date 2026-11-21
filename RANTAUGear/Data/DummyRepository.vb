@@ -12,6 +12,15 @@ Imports RantauGear.Models
 Namespace Data
     Public Class DummyRepository
         Implements IRentalRepository
+        Public Function GetReservationOptionsAsync(ct As CancellationToken) As Task(Of ReservationOptions) Implements IRentalRepository.GetReservationOptionsAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
+        Public Function PreviewReservationAsync(request As ReservationRequest, ct As CancellationToken) As Task(Of ReservationQuote) Implements IRentalRepository.PreviewReservationAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
+        Public Function ReserveWithDpAsync(requestId As Guid, request As ReservationRequest, quote As ReservationQuote, ct As CancellationToken) As Task(Of ReservationReceipt) Implements IRentalRepository.ReserveWithDpAsync
+            Throw New NotSupportedException("Gunakan repository online untuk reservasi async.")
+        End Function
         Public Function ReadMasterAsync(kind As MasterDataKind, offset As Integer, pageSize As Integer, cancellationToken As CancellationToken) As Task(Of MasterRecordPage) Implements IRentalRepository.ReadMasterAsync
             Throw New NotSupportedException("Data master dikelola pada repository online.")
         End Function

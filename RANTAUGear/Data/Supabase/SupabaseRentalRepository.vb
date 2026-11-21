@@ -76,11 +76,17 @@ Namespace Data.Supabase
                     selection = "id,name,daily_price,is_active"
                     description = "Daftar paket online. Pengelolaan isi paket akan dihubungkan pada tahap berikutnya."
                     columns = {New ColumnSpec("name", "Nama paket"), New ColumnSpec("daily_price", "Tarif per hari", GetType(Decimal)), New ColumnSpec("is_active", "Status")}
-                Case "booking", "return-qc", "reports"
+                Case "booking"
+                    resource = "reservation_register"
+                    selection = "id,rental_number,customer_name,pickup_at,due_at,display_state,rent_amount,deposit_due,dp_received"
+                    ordering = "pickup_at.desc,id.desc"
+                    description = "Reservasi dan DP diterima dari database. Pengambilan serta deposit dicatat pada tahap berikutnya."
+                    columns = {New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("customer_name", "Pelanggan"), New ColumnSpec("pickup_at", "Jadwal ambil", GetType(DateTime)), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("rent_amount", "Nilai sewa", GetType(Decimal)), New ColumnSpec("dp_received", "DP diterima", GetType(Decimal)), New ColumnSpec("deposit_due", "Deposit saat ambil", GetType(Decimal))}
+                Case "return-qc", "reports"
                     resource = "rental_overview"
                     selection = "id,rental_number,pickup_at,due_at,display_state,rent_amount,deposit_due"
                     ordering = "pickup_at.desc,id.desc"
-                    description = If(section = "reports", "Nilai sewa dan deposit yang ditetapkan pada transaksi. Ini belum merupakan laporan penerimaan kas.", "Daftar sewa online. Pencatatan reservasi, pengambilan, dan QC belum diaktifkan pada tahap ini.")
+                    description = If(section = "reports", "Nilai sewa dan deposit yang ditetapkan pada transaksi. Ini belum merupakan laporan penerimaan kas.", "Daftar sewa online. Reservasi dan DP dapat dicatat melalui Reservasi baru; pengambilan dan QC belum diaktifkan.")
                     columns = {New ColumnSpec("rental_number", "Nomor sewa"), New ColumnSpec("pickup_at", "Jadwal ambil", GetType(DateTime)), New ColumnSpec("due_at", "Jadwal kembali", GetType(DateTime)), New ColumnSpec("display_state", "Status"), New ColumnSpec("rent_amount", "Nilai sewa", GetType(Decimal)), New ColumnSpec("deposit_due", "Deposit ditetapkan", GetType(Decimal))}
                 Case "users"
                     resource = "staff_profiles"
