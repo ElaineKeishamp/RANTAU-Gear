@@ -40,13 +40,7 @@ dotnet run --project tests/RantauGear.Checks.vbproj -- --check
 
 Runner tanpa paket pengujian eksternal memeriksa validasi booking, stok, hak akses, harga paket, pembulatan tarif, batas denda, dan pencatatan QC. Tanpa `--check`, runner membuka pratinjau administrator menggunakan repository demo terpisah untuk pemeriksaan desain. Pratinjau tersebut berada di proyek pengujian dan bukan jalur login aplikasi utama.
 
-## Supabase nanti
-
-Pembuatan proyek Supabase, koneksi database, autentikasi online, dan migrasi data ditunda sesuai ruang lingkup saat ini. Batas akses data tetap melalui `IRentalRepository`; `DummyRepository` adalah implementasi demo.
-
-Saat integrasi online dikerjakan, implementasi repository perlu diubah menjadi async agar antarmuka tidak macet. Booking dan pengembalian harus menggunakan transaksi/RPC di database agar pembaruan rental, stok, inspeksi, dan denda bersifat atomik serta tidak terjadi sewa ganda antar komputer. Pemeriksaan stok di aplikasi saat ini hanya melindungi satu sesi lokal.
-
-Gunakan Supabase Auth dan kebijakan RLS untuk hak akses produksi. Jangan menyalin daftar password demo ke tabel online dan jangan menanam service-role key ke aplikasi desktop. Struktur domain yang sudah tersedia: kategori, unit, paket/isi paket, pelanggan, rental/isi rental, inspeksi, denda, serta profil/peran pengguna.
+a: kategori, unit, paket/isi paket, pelanggan, rental/isi rental, inspeksi, denda, serta profil/peran pengguna.
 
 Pembuatan installer atau paket EXE distribusi juga ditunda. File hasil debug build hanya digunakan untuk pengujian.
 
