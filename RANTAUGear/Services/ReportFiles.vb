@@ -71,7 +71,9 @@ Namespace Services
         End Function
         Public Function ExportCsv(query As ReportQuery, snapshot As ReportSnapshot) As String
             If snapshot.Total <> snapshot.Rows.Count Then Throw New InvalidOperationException("Laporan terlalu besar untuk ekspor. Persempit periode sampai maksimal 10.000 baris.")
-            Dim root = "D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan"
+            Dim configured = Environment.GetEnvironmentVariable("RANTAUGEAR_EXPORT_DIRECTORY")
+            If String.IsNullOrWhiteSpace(configured) Then configured = TryCast(AppContext.GetData("RantauGear.ExportDirectory"), String)
+            Dim root = If(String.IsNullOrWhiteSpace(configured), "D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan", If(IO.Path.IsPathRooted(configured), configured, IO.Path.Combine(AppContext.BaseDirectory, configured)))
             Directory.CreateDirectory(root)
             Dim path = IO.Path.Combine(root, "RANTAUGear-" & query.Kind & "-" & DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMdd-HHmmss") & "-" & Guid.NewGuid().ToString("N").Substring(0, 6) & ".csv")
             Using table = ToTable(snapshot), stream As New FileStream(path, FileMode.CreateNew, FileAccess.Write), writer As New StreamWriter(stream, New UTF8Encoding(True))

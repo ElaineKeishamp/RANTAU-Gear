@@ -55,7 +55,7 @@ dotnet run --project tests/RantauGear.Checks.vbproj --artifacts-path 'D:\elaine\
 
 Tanpa argumen, proyek `tests` juga dapat membuka pratinjau demo lokal. `DummyRepository`, akun contoh, dan service rental sinkron dipertahankan untuk pengujian regresi; tidak digunakan sebagai fallback login atau transaksi pada aplikasi utama.
 
-Installer/distribusi EXE tetap ditunda. Hasil build debug digunakan untuk pengujian.
+Pemilik telah mengizinkan paket Windows x64 mandiri pada 2026-11-21. Installer belum dibuat.
 
 ## Katalog awal
 
@@ -75,10 +75,10 @@ Perubahan sewa ada di Booking: pilih baris lalu Perpanjangan, Pembatalan, atau C
 
 ## Berhenti untuk pemeriksaan pemilik
 
-Versi ini disiapkan untuk diperiksa melalui project Visual Studio. Tidak dilakukan dotnet publish, pembuatan installer, atau pengemasan distribusi EXE. Tahap distribusi menunggu pemeriksaan total dan instruksi lanjutan pemilik.
+Paket folder/ZIP Windows x64 diizinkan pemilik pada 2026-11-21. Jalankan scripts/Publish-Windows.ps1 untuk membuat paket mandiri; hasil dan cache berada di folder Pemrograman Visual-backup. Ekstrak seluruh ZIP ke folder yang bisa ditulis, lalu jalankan RANTAUGear.exe. Internet dan akun staf aktif tetap diperlukan.
 
 Mulai dari [panduan pemeriksaan menyeluruh](docs/PRE_DISTRIBUTION_REVIEW.md). Tanda centang manual masih kosong dengan sengaja; pengujian otomatis tidak menggantikan konfirmasi pemilik.
 
-Laporan ada di menu Laporan. Kas transaksi berdasarkan waktu pembayaran; penyewaan berdasarkan jadwal ambil dan status efektif saat query. Deposit bukan pendapatan, pemotongan deposit bukan kas baru. Ekspor mengambil snapshot baru seluruh hasil filter, bukan hanya halaman tabel; CSV disimpan pada D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan.
+Laporan ada di menu Laporan. Kas transaksi berdasarkan waktu pembayaran; penyewaan berdasarkan jadwal ambil dan status efektif saat query. Deposit bukan pendapatan, pemotongan deposit bukan kas baru. Ekspor mengambil snapshot baru seluruh hasil filter, bukan hanya halaman tabel; CSV debug disimpan pada D:\elaine\SEM 5\Pemrograman Visual-backup\Laporan; paket Release menyimpan di subfolder Laporan di sebelah aplikasi. Variabel RANTAUGEAR_EXPORT_DIRECTORY dapat mengganti lokasi ekspor.
 
 Kelola User khusus Super Admin. Akun dibuat dengan password yang diketik admin tanpa email undangan; akses diberikan kepada petugas secara pribadi. Jangan mengirim password kepada agent. Pengujian pembuatan akun Auth nyata dan login akun baru masih perlu dicoba sendiri oleh pemilik; agent tidak memegang password pemilik dan tidak meninggalkan akun cloud percobaan.

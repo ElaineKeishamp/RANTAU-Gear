@@ -209,6 +209,14 @@ Module ReviewUiChecks
         sample.Total = 0 : sample.Summary("cash_net") = -1000D
         Dim negativeCsv = File.ReadAllText(ReportFiles.ExportCsv(query, sample))
         Check(negativeCsv.Contains("-1000") AndAlso Not negativeCsv.Contains("'-1000"), "Negative net cash stays numeric while formula text is neutralized")
+        Dim prior = AppContext.GetData("RantauGear.ExportDirectory")
+        Try
+            AppContext.SetData("RantauGear.ExportDirectory", "Laporan-portable-test")
+            Dim portable = ReportFiles.ExportCsv(query, sample)
+            Check(Path.GetDirectoryName(portable) = Path.Combine(AppContext.BaseDirectory, "Laporan-portable-test"), "Published export path resolves beside application")
+        Finally
+            AppContext.SetData("RantauGear.ExportDirectory", prior)
+        End Try
         Return passed
     End Function
 End Module

@@ -1,6 +1,6 @@
 # Pemeriksaan total sebelum distribusi
 
-Status: MENUNGGU PEMERIKSAAN PEMILIK. Jangan publish, buat installer, atau kemas EXE distribusi sampai pemilik menyetujui sesudah review. Pengujian di bawah dijalankan dari project Visual Studio; debug build bukan paket distribusi.
+Status: pemilik mengizinkan publish folder/ZIP Windows x64 pada 2026-11-21. Izin pengemasan tidak berarti checklist manual berikut sudah selesai. Installer belum dibuat.
 
 ## Cara mulai
 
