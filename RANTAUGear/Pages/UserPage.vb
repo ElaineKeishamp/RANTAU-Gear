@@ -37,12 +37,13 @@ Namespace Pages
             layout.Controls.Add(title, 0, 0)
             Dim tool As New FlowLayoutPanel With {.Dock = DockStyle.Fill}
             layout.Controls.Add(tool, 0, 1)
-            Dim toggle As New RoundedButton With {.Text = "Aktifkan / Nonaktifkan", .Width = 190, .Height = 34}
+            Dim toggle As New RoundedButton With {.Text = "Aktifkan / Nonaktifkan", .Width = 190, .Height = 34, .CornerRadius = 8}
             AddHandler toggle.Click, AddressOf ToggleUser
             tool.Controls.Add(toggle)
             grid.Dock = DockStyle.Fill
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             layout.Controls.Add(grid, 0, 2)
         End Sub
         Private Sub RefreshGrid()

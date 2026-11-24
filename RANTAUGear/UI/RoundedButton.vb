@@ -12,11 +12,11 @@ Namespace UI
         Inherits Button
         Private hovered As Boolean
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
-        Public Property CornerRadius As Integer = 6
+        Public Property CornerRadius As Integer = 8
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
-        Public Property NormalColor As Color = Theme.Primary
+        Public Property NormalColor As Color = ColorTranslator.FromHtml("#227C51")
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
-        Public Property HoverColor As Color = Color.FromArgb(23, 71, 53)
+        Public Property HoverColor As Color = ColorTranslator.FromHtml("#1B6143")
         Public Sub New()
             FlatStyle = FlatStyle.Flat
             FlatAppearance.BorderSize = 0

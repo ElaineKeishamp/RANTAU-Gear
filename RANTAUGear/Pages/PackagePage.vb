@@ -30,7 +30,7 @@ Namespace Pages
             Dim title As Label = UiHelpers.LabelOf("Pilih paket untuk melihat isi, tarif, dan kesiapan setiap unit. Penyewaan dicatat melalui Booking.", 10.0F, Theme.Muted, False)
             title.Dock = DockStyle.Fill
             layout.Controls.Add(title, 0, 0)
-            Dim split As New SplitContainer With {.Dock = DockStyle.Fill, .BackColor = Theme.Background}
+            Dim split As New SplitContainer With {.Dock = DockStyle.Fill, .BackColor = Theme.Card}
             layout.Controls.Add(split, 0, 1)
             AddHandler split.SizeChanged, Sub() split.SplitterDistance = Math.Min(280, Math.Max(50, split.Width \ 3))
             packageList.Dock = DockStyle.Fill
@@ -38,6 +38,8 @@ Namespace Pages
             packageList.BorderStyle = BorderStyle.None
             packageList.ItemHeight = 38
             packageList.IntegralHeight = False
+            packageList.BackColor = Theme.Card
+            packageList.ForeColor = Theme.Text
             For Each item As Package In repository.GetPackages()
                 packageList.Items.Add(item.Name)
             Next
@@ -46,6 +48,7 @@ Namespace Pages
             detail.Dock = DockStyle.Fill
             detail.Padding = New Padding(24)
             detail.AutoScroll = True
+            detail.BackColor = Theme.Card
             split.Panel2.Controls.Add(detail)
             If packageList.Items.Count > 0 Then packageList.SelectedIndex = 0
             If packageList.Items.Count = 0 Then detail.Controls.Add(UiHelpers.LabelOf("Belum ada paket bundling.", 12, Theme.Muted, False))

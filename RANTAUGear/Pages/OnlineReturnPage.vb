@@ -17,8 +17,8 @@ Namespace Pages
         Private ReadOnly repository As IRentalRepository
         Private ReadOnly listing As OnlineDataPage
         Private ReadOnly buttons As New List(Of Button)()
-        Private ReadOnly cancelButton As New Button With {.Text = "Batalkan", .Width = 95, .Height = 38, .Visible = False}
-        Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted, .Padding = New Padding(18, 0, 18, 0)}
+        Private ReadOnly cancelButton As New Button With {.Text = "Batalkan", .Width = 95, .Height = 38, .Visible = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#FEE2E4"), .ForeColor = ColorTranslator.FromHtml("#DC2626"), .Cursor = Cursors.Hand}
+        Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted, .Padding = New Padding(18, 0, 18, 0), .AutoSize = False, .TextAlign = ContentAlignment.TopLeft}
         Private busy As Boolean
         Private operation As Task = Task.CompletedTask
         Private activeRequest As CancellationTokenSource
@@ -49,8 +49,9 @@ Namespace Pages
             AddHandler cancelButton.Click, Sub() activeRequest?.Cancel()
         End Sub
         Private Sub AddAction(toolbar As FlowLayoutPanel, action As ReturnAction)
-            Dim button As New Button With {.Text = ReturnWorkflowDialog.Caption(action), .Tag = action, .Width = 185, .Height = 38, .Enabled = False, .Cursor = Cursors.Hand}
-            buttons.Add(button) : toolbar.Controls.Add(button)
+            Dim button As New Button With {.Text = ReturnWorkflowDialog.Caption(action), .Tag = action, .Width = 185, .Height = 38, .Enabled = False, .Cursor = Cursors.Hand, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text}
+            buttons.Add(button)
+            toolbar.Controls.Add(button)
             AddHandler button.Click, Sub() StartAction(action)
         End Sub
         Private Sub SetButtons()

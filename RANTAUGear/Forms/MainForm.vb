@@ -49,7 +49,19 @@ Namespace Forms
             sidebar.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
             sidebar.RowStyles.Add(New RowStyle(SizeType.Absolute, 110))
             shell.Controls.Add(sidebar, 0, 0)
-            sidebar.Controls.Add(New Label With {.Text = "RANTAU Gear", .Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 19, FontStyle.Bold), .ForeColor = Color.White, .TextAlign = ContentAlignment.MiddleLeft}, 0, 0)
+
+            ' Header dengan logo dan branding
+            Dim headerPanel As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Theme.Sidebar, .Padding = New Padding(10, 6, 10, 6), .ColumnCount = 2, .RowCount = 1}
+            headerPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 44.0F))
+            headerPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+            sidebar.Controls.Add(headerPanel, 0, 0)
+
+            Dim logoPic As New PictureBox With {.SizeMode = PictureBoxSizeMode.Zoom, .BackColor = Color.Transparent, .Size = New Size(40, 40), .Dock = DockStyle.None, .Location = New Point(2, 2)}
+            logoPic.Image = ImageHelper.LoadBrandLogo(40, 40)
+            headerPanel.Controls.Add(logoPic, 0, 0)
+
+            Dim logoLabel As New Label With {.Text = "RANTAU Gear", .Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 13, FontStyle.Bold), .ForeColor = ColorTranslator.FromHtml("#50C878"), .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(8, 0, 0, 0)}
+            headerPanel.Controls.Add(logoLabel, 1, 0)
             Dim menu As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = True, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .BackColor = Theme.Sidebar}
             sidebar.Controls.Add(menu, 0, 1)
             AddMenu(menu, "Dashboard", "dashboard")
@@ -71,7 +83,7 @@ Namespace Forms
             account.Controls.Add(New Label With {.Text = currentUser.DisplayName, .Dock = DockStyle.Fill, .ForeColor = Color.White, .Font = New Font("Segoe UI", 10, FontStyle.Bold)}, 0, 0)
             Dim roleText = If(currentUser.Role = UserRole.SuperAdmin, "Super Admin", If(currentUser.Role = UserRole.FrontOffice, "Front office", "Gudang / QC"))
             account.Controls.Add(New Label With {.Text = roleText, .Dock = DockStyle.Fill, .ForeColor = Color.LightGray, .Font = New Font("Segoe UI", 9)}, 0, 1)
-            Dim logout As New RoundedButton With {.Text = "Keluar akun", .NormalColor = Color.FromArgb(80, 95, 88), .Dock = DockStyle.Bottom, .Height = 38}
+            Dim logout As New RoundedButton With {.Text = "Keluar akun", .NormalColor = ColorTranslator.FromHtml("#156C4B"), .HoverColor = ColorTranslator.FromHtml("#0F4A37"), .Dock = DockStyle.Bottom, .Height = 38, .CornerRadius = 8}
             AddHandler logout.Click, Sub() Close()
             account.Controls.Add(logout, 0, 2)
             Dim right As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 3, .BackColor = Theme.Background, .Margin = New Padding(0)}
@@ -104,10 +116,10 @@ Namespace Forms
         End Sub
 
         Private Sub AddMenu(container As FlowLayoutPanel, caption As String, key As String)
-            Dim button As New Button With {.Text = "  " & caption, .Tag = key, .Width = 190, .Height = 44, .FlatStyle = FlatStyle.Flat, .BackColor = Theme.Sidebar, .ForeColor = Color.FromArgb(220, 232, 226), .TextAlign = ContentAlignment.MiddleLeft, .Font = Theme.UiFont, .Cursor = Cursors.Hand, .Margin = New Padding(0, 2, 0, 2)}
+            Dim button As New Button With {.Text = "  " & caption, .Tag = key, .Width = 190, .Height = 44, .FlatStyle = FlatStyle.Flat, .BackColor = Theme.Sidebar, .ForeColor = ColorTranslator.FromHtml("#D0E3D9"), .TextAlign = ContentAlignment.MiddleLeft, .Font = Theme.UiFont, .Cursor = Cursors.Hand, .Margin = New Padding(0, 2, 0, 2)}
             button.FlatAppearance.BorderSize = 0
-            AddHandler button.MouseEnter, Sub() button.BackColor = Color.FromArgb(42, 75, 61)
-            AddHandler button.MouseLeave, Sub() button.BackColor = If(activeKey = key, Theme.Primary, Theme.Sidebar)
+            AddHandler button.MouseEnter, Sub() button.BackColor = ColorTranslator.FromHtml("#163829")
+            AddHandler button.MouseLeave, Sub() button.BackColor = If(activeKey = key, ColorTranslator.FromHtml("#227C51"), Theme.Sidebar)
             AddHandler button.Click, Sub() Navigate(CStr(button.Tag), caption)
             container.Controls.Add(button)
             menuButtons.Add(button)
@@ -117,7 +129,7 @@ Namespace Forms
             If Not New AuthService(repository).CanAccess(currentUser, key) Then Return
             activeKey = key
             For Each button In menuButtons
-                button.BackColor = If(CStr(button.Tag) = key, Theme.Primary, Theme.Sidebar)
+                button.BackColor = If(CStr(button.Tag) = key, ColorTranslator.FromHtml("#227C51"), Theme.Sidebar)
                 button.AccessibleDescription = If(CStr(button.Tag) = key, "Halaman aktif", "Buka halaman")
             Next
             pageTitle.Text = caption

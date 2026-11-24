@@ -36,7 +36,11 @@ Namespace Pages
             AddMetric(stats, 3, "Dalam perawatan", repository.GetUnits().Where(Function(u) u.Status = UnitStatus.Maintenance).Count(), Theme.Maintenance)
             Dim active = repository.GetRentals().Where(Function(r) r.Status = RentalStatus.Active OrElse r.Status = RentalStatus.Late).OrderBy(Function(r) r.DueAt).ToList()
             Dim late = active.Where(Function(r) r.DueAt < DateTime.Now).Count()
-            Dim notice As New Label With {.Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleLeft, .Padding = New Padding(14, 0, 14, 0), .BackColor = Color.FromArgb(248, 237, 215), .ForeColor = Theme.Rented, .Text = If(late > 0, late.ToString() & " sewa melewati tenggat. Prioritaskan pengembalian dan pemeriksaan unit.", "Tidak ada sewa terlambat. Periksa daftar pengembalian berikutnya."), .Margin = New Padding(0, 12, 0, 8)}
+            Dim noticeColor = If(late > 0, ColorTranslator.FromHtml("#FEF3C7"), Theme.SuccessLight)
+            Dim noticeForeColor = If(late > 0, ColorTranslator.FromHtml("#92400E"), Theme.ReadyText)
+            Dim notice As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(14, 0, 14, 0), .BackColor = noticeColor, .Margin = New Padding(0, 12, 0, 8), .CornerRadius = 8}
+            Dim noticeLabel As New Label With {.Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleLeft, .ForeColor = noticeForeColor, .Text = If(late > 0, late.ToString() & " sewa melewati tenggat. Prioritaskan pengembalian dan pemeriksaan unit.", "Tidak ada sewa terlambat. Periksa daftar pengembalian berikutnya."), .Font = Theme.UiFont}
+            notice.Controls.Add(noticeLabel)
             layout.Controls.Add(notice, 0, 2)
             Dim title = UiHelpers.LabelOf("Pengembalian berikutnya  /  " & active.Count.ToString() & " sewa berjalan", 12, Theme.Text, True)
             title.Dock = DockStyle.Fill
@@ -44,6 +48,7 @@ Namespace Pages
             layout.Controls.Add(title, 0, 3)
             Dim grid As New DataGridView With {.Dock = DockStyle.Fill}
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             grid.DataSource = active.Select(Function(r) New With {.Nomor = r.RentalNumber, .Pelanggan = repository.GetCustomerById(r.CustomerId).Name, .Unit = r.Items.Count, .Tenggat = r.DueAt.ToString("dd MMM yyyy HH:mm"), .Status = UiHelpers.StatusText(r.Status, r.DueAt)}).ToList()
             layout.Controls.Add(grid, 0, 4)
             If active.Count = 0 Then
@@ -55,7 +60,7 @@ Namespace Pages
             UiHelpers.FinishPage(Me)
         End Sub
         Private Sub AddMetric(parent As TableLayoutPanel, column As Integer, caption As String, value As Integer, color As Color)
-            Dim panel As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(18, 12, 18, 12), .Margin = New Padding(0, 0, If(column = 3, 0, 12), 0), .CornerRadius = 8}
+            Dim panel As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(18, 12, 18, 12), .Margin = New Padding(0, 0, If(column = 3, 0, 12), 0), .CornerRadius = 12}
             parent.Controls.Add(panel, column, 0)
             Dim content As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2}
             content.RowStyles.Add(New RowStyle(SizeType.Absolute, 26))

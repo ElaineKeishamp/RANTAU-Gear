@@ -22,12 +22,12 @@ Namespace Forms
         Private ReadOnly due As New DateTimePicker With {.Dock = DockStyle.Fill, .Format = DateTimePickerFormat.Custom, .CustomFormat = "dd/MM/yyyy HH:mm", .ShowUpDown = True}
         Private ReadOnly methodBox As New ComboBox With {.Dock = DockStyle.Fill, .DropDownStyle = ComboBoxStyle.DropDownList}
         Private ReadOnly referenceBox As New TextBox With {.Dock = DockStyle.Fill, .MaxLength = 200}
-        Private ReadOnly items As New DataGridView With {.Dock = DockStyle.Fill, .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .RowHeadersVisible = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, .BackgroundColor = Color.White}
+        Private ReadOnly items As New DataGridView With {.Dock = DockStyle.Fill, .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .RowHeadersVisible = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, .BackgroundColor = Theme.Card}
         Private ReadOnly summary As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Text}
         Private ReadOnly confirmed As New CheckBox With {.Dock = DockStyle.Fill, .Text = "DP sesuai ringkasan sudah diterima dari pelanggan", .Enabled = False}
-        Private ReadOnly previewButton As New Button With {.Text = "Hitung biaya", .Width = 145, .Height = 38}
-        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan reservasi + DP", .Width = 210, .Height = 38, .Enabled = False}
-        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 90, .Height = 38}
+        Private ReadOnly previewButton As New Button With {.Text = "Hitung biaya", .Width = 145, .Height = 38, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text}
+        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan reservasi + DP", .Width = 210, .Height = 38, .Enabled = False, .CornerRadius = 8}
+        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 90, .Height = 38, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#F3F4F6"), .ForeColor = Theme.Text}
         Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Maintenance, .Padding = New Padding(18, 0, 18, 0)}
         Private quote As ReservationQuote
         Private snapshot As ReservationRequest

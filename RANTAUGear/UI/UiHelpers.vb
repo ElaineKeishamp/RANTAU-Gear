@@ -29,17 +29,35 @@ Namespace UI
             Return label
         End Function
         Public Sub StyleGrid(grid As DataGridView)
+            ' Konfigurasi utama tabel
             grid.BackgroundColor = Theme.Card
             grid.BorderStyle = BorderStyle.None
             grid.EnableHeadersVisualStyles = False
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.Primary
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White
-            grid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)
+
+            ' Header styling
+            grid.ColumnHeadersDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#E6EFEA")
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.Text
+            grid.ColumnHeadersDefaultCellStyle.Font = New Font("Segoe UI", 9.5F, FontStyle.Bold)
+            grid.ColumnHeadersDefaultCellStyle.Padding = New Padding(10, 0, 10, 0)
+            grid.ColumnHeadersHeight = 44
+
+            ' Cell styling
             grid.DefaultCellStyle.Font = Theme.UiFont
             grid.DefaultCellStyle.ForeColor = Theme.Text
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(220, 235, 228)
+            grid.DefaultCellStyle.Padding = New Padding(10, 0, 10, 0)
+            grid.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#E8F5EE")
             grid.DefaultCellStyle.SelectionForeColor = Theme.Text
+
+            ' Alternate row styling
             grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 249)
+            grid.AlternatingRowsDefaultCellStyle.Font = Theme.UiFont
+            grid.AlternatingRowsDefaultCellStyle.ForeColor = Theme.Text
+
+            ' Konfigurasi baris
+            grid.RowTemplate.Height = 44
+            grid.AllowUserToResizeRows = False
+
+            ' Border dan grid
             grid.RowHeadersVisible = False
             grid.AllowUserToAddRows = False
             grid.AllowUserToDeleteRows = False
@@ -47,13 +65,31 @@ Namespace UI
             grid.MultiSelect = False
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
             grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal
-            grid.GridColor = Theme.Border
-            grid.DefaultCellStyle.Padding = New Padding(8, 0, 8, 0)
-            grid.ColumnHeadersDefaultCellStyle.Padding = New Padding(8, 0, 8, 0)
-            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
-            grid.RowTemplate.Height = 44
-            grid.ColumnHeadersHeight = 44
-        End Sub
+            grid.GridColor = Theme.BorderLight
+
+            ' Auto-sizing kolom
+                grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            End Sub
+
+            Public Sub ApplyColumnAlignments(grid As DataGridView)
+                ' Helper untuk mengatur alignment kolom dengan benar
+                ' Gunakan method ini setelah StyleGrid() untuk set alignment sesuai tipe kolom
+                For Each column As DataGridViewColumn In grid.Columns
+                    Select Case column.Name.ToLower()
+                        Case "nomor", "pelanggan", "keterangan"
+                            column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
+                        Case "tgl", "tanggal", "jadwal", "created", "updated"
+                            column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+                        Case "status", "state"
+                            column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+                        Case Else
+                            ' Jika kolom berisi nilai Rpiah (contains "Rp" atau numeric), rata kanan
+                            If column.Name.ToLower().Contains("nilai") OrElse column.Name.ToLower().Contains("dp") OrElse column.Name.ToLower().Contains("sewa") OrElse column.Name.ToLower().Contains("harga") Then
+                                column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+                            End If
+                    End Select
+                Next
+            End Sub
         Public Function PageLayout(owner As UserControl, description As String) As TableLayoutPanel
             owner.Dock = DockStyle.Fill
             owner.BackColor = Theme.Background

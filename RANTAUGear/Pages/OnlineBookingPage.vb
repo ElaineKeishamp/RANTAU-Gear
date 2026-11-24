@@ -9,6 +9,7 @@ Imports RantauGear.Data
 Imports RantauGear.Data.Supabase
 Imports RantauGear.Forms
 Imports RantauGear.Models
+Imports RantauGear.Services
 Imports RantauGear.UI
 Namespace Pages
     Public NotInheritable Class OnlineBookingPage
@@ -16,11 +17,11 @@ Namespace Pages
         Implements IWorkspacePage
         Private ReadOnly repository As IRentalRepository
         Private ReadOnly listing As OnlineDataPage
-        Private ReadOnly addButton As New RoundedButton With {.Text = "Reservasi baru", .Width = 160, .Height = 38}
-        Private ReadOnly pickupButton As New Button With {.Text = "Proses pengambilan", .Width = 200, .Height = 38, .Enabled = False}
+        Private ReadOnly addButton As New RoundedButton With {.Text = "Reservasi baru", .Width = 160, .Height = 38, .CornerRadius = 8}
+        Private ReadOnly pickupButton As New Button With {.Text = "Proses pengambilan", .Width = 200, .Height = 38, .Enabled = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = ColorTranslator.FromHtml("#4B5563"), .Cursor = Cursors.Hand}
         Private ReadOnly changeButtons As New List(Of Button)()
-        Private ReadOnly cancelButton As New Button With {.Text = "Batalkan", .Width = 100, .Height = 38, .Visible = False}
-        Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted}
+        Private ReadOnly cancelButton As New Button With {.Text = "Batalkan", .Width = 100, .Height = 38, .Visible = False, .FlatStyle = FlatStyle.Flat, .BackColor = Color.White, .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted, .AutoSize = False, .TextAlign = ContentAlignment.TopLeft}
         Private operation As Task = Task.CompletedTask
         Private activeRequest As CancellationTokenSource
         Private busy As Boolean
@@ -37,23 +38,47 @@ Namespace Pages
             layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 104))
             layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 54))
             layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(20, 8, 20, 0)}
-            actions.Controls.Add(addButton) : actions.Controls.Add(pickupButton)
+
+            ' Action buttons card
+            Dim actionsCard As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(20, 8, 20, 8), .CornerRadius = 12}
+            Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .AutoScroll = False, .FlowDirection = FlowDirection.LeftToRight, .WrapContents = True}
+            actionsCard.Controls.Add(actions)
+            layout.Controls.Add(actionsCard, 0, 0)
+
+            ' Configure action buttons
+            addButton.Height = 38
+            actions.Controls.Add(addButton)
+
+            pickupButton.Height = 38
+            actions.Controls.Add(pickupButton)
+
             For Each action In {BookingChangeAction.Extend, BookingChangeAction.Cancel, BookingChangeAction.Expire}
-                Dim button As New Button With {.Text = BookingChangeDialog.Caption(action), .Tag = action, .Width = 140, .Height = 38, .Enabled = False, .Cursor = Cursors.Hand}
-                changeButtons.Add(button) : actions.Controls.Add(button)
+                Dim button As New Button With {.Text = BookingChangeDialog.Caption(action), .Tag = action, .Width = 140, .Height = 38, .Enabled = False, .Cursor = Cursors.Hand, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = ColorTranslator.FromHtml("#4B5563"), .Font = Theme.UiFont}
+                changeButtons.Add(button)
+                actions.Controls.Add(button)
                 Dim chosenAction = action
                 AddHandler button.Click, Sub() StartChange(chosenAction)
             Next
+
             actions.Controls.Add(cancelButton)
-            addButton.Cursor = Cursors.Hand : cancelButton.Cursor = Cursors.Hand : pickupButton.Cursor = Cursors.Hand
-            layout.Controls.Add(actions, 0, 0)
-            message.Padding = New Padding(20, 0, 20, 0)
+            ' Message notification card
+            Dim messageCard As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(18, 12, 18, 12), .CornerRadius = 12, .BackColor = Theme.SuccessLight}
+            message.Padding = New Padding(0)
             message.Text = "Reservasi mencatat alat per jenis dan DP yang sudah diterima. Pilih reservasi pada tabel untuk memproses pengambilan, pelunasan dan deposit."
-            layout.Controls.Add(message, 0, 1)
+            message.ForeColor = Theme.ReadyText
+            messageCard.Controls.Add(message)
+            layout.Controls.Add(messageCard, 0, 1)
+            ' Data listing card
+            Dim dataCard As New RoundedPanel With {.Dock = DockStyle.Fill, .Padding = New Padding(18), .CornerRadius = 12}
+            Dim dataContainer As New Panel With {.Dock = DockStyle.Fill}
+
             listing = New OnlineDataPage(repository, "booking")
             AddHandler listing.SessionExpired, Sub() RaiseEvent SessionExpired(Me, EventArgs.Empty)
-            layout.Controls.Add(listing, 0, 2) : Controls.Add(layout)
+            dataContainer.Controls.Add(listing)
+            dataCard.Controls.Add(dataContainer)
+            layout.Controls.Add(dataCard, 0, 2)
+
+            Controls.Add(layout)
             AddHandler listing.RecordSelectionChanged, Sub() UpdateActions()
             AddHandler pickupButton.Click, Sub() StartPickup()
             AddHandler addButton.Click, Sub() StartNew()
@@ -121,6 +146,7 @@ Namespace Pages
                             RaiseEvent SessionExpired(Me, EventArgs.Empty) : Return
                         End If
                         message.Text = If(dialog.Receipt Is Nothing, "Pengambilan ditutup. Periksa status dan pembayaran pada daftar sebelum memproses ulang.", dialog.Receipt.Number & " berhasil diproses. Pelunasan dan deposit tercatat; muat ulang menampilkan status terbaru.")
+                        If dialog.Receipt IsNot Nothing Then OfferReceipt(details, dialog.PaymentMethod, dialog.SavedUnitIds)
                     End Using
                     Await listing.LoadPageAsync(0)
                 Catch ex As Exception When TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is SupabaseRequestException OrElse TypeOf ex Is System.Net.Http.HttpRequestException OrElse TypeOf ex Is OperationCanceledException OrElse TypeOf ex Is System.Text.Json.JsonException OrElse TypeOf ex Is IO.InvalidDataException
@@ -137,6 +163,27 @@ Namespace Pages
                 End Try
             End Using
         End Function
+        Private Sub OfferReceipt(details As PickupDetails, method As String, unitIds As List(Of Long))
+            If MessageBox.Show(FindForm(), "Pengambilan tersimpan. Cetak nota sewa ke PDF sekarang?", "Cetak nota", MessageBoxButtons.YesNo, MessageBoxIcon.Question) <> DialogResult.Yes Then Return
+            Dim receipt = ReceiptPdfService.FromPickup(details, method, unitIds)
+            Using dialog As New SaveFileDialog With {.Title = "Simpan nota sewa", .Filter = "Dokumen PDF (*.pdf)|*.pdf", .DefaultExt = "pdf", .AddExtension = True, .OverwritePrompt = True, .FileName = ReceiptPdfService.SuggestedFileName(receipt)}
+                If dialog.ShowDialog(FindForm()) <> DialogResult.OK Then Return
+                Try
+                    ReceiptPdfService.Save(receipt, dialog.FileName)
+                Catch ex As Exception When TypeOf ex Is IO.IOException OrElse TypeOf ex Is UnauthorizedAccessException
+                    message.ForeColor = Theme.Maintenance
+                    message.Text = "Pengambilan tersimpan, tetapi nota belum dapat disimpan. Pilih folder lain atau tutup PDF yang sedang terbuka."
+                    Return
+                End Try
+                message.ForeColor = Theme.Ready
+                message.Text = receipt.Number & " berhasil diproses. Nota tersimpan di " & dialog.FileName
+                Try
+                    Diagnostics.Process.Start(New Diagnostics.ProcessStartInfo(dialog.FileName) With {.UseShellExecute = True})
+                Catch ex As System.ComponentModel.Win32Exception
+                    ' Tidak ada aplikasi pembuka PDF; file tetap tersimpan.
+                End Try
+            End Using
+        End Sub
         Private Sub UpdateActions()
             addButton.Enabled = Not busy
             pickupButton.Enabled = Not busy AndAlso listing.SelectedRecordId.HasValue

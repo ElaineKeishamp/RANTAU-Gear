@@ -3,6 +3,7 @@ Option Explicit On
 Option Infer On
 
 Imports System.Drawing
+Imports System.IO
 Imports System.Threading
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
@@ -29,15 +30,19 @@ Namespace Forms
         Private ReadOnly activeBox As New CheckBox With {.Text = "Aktif untuk transaksi baru", .AutoSize = True}
         Private ReadOnly qcBox As New CheckBox With {.Text = "Unit sudah diperiksa dan siap disewakan", .AutoSize = True}
         Private ReadOnly componentsGrid As New DataGridView With {.Dock = DockStyle.Fill, .Height = 190, .AllowUserToAddRows = False, .AllowUserToDeleteRows = False, .RowHeadersVisible = False, .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, .BackgroundColor = Color.White}
-        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan", .Width = 145, .Height = 38}
-        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 100, .Height = 38, .Cursor = Cursors.Hand}
+        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan", .Width = 145, .Height = 38, .CornerRadius = 8}
+        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 100, .Height = 38, .Cursor = Cursors.Hand, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#F3F4F6"), .ForeColor = Theme.Text}
         Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Maintenance, .Padding = New Padding(20, 0, 20, 0)}
+        Private ReadOnly photoBox As New PictureBox With {.SizeMode = PictureBoxSizeMode.Zoom, .BackColor = Color.FromArgb(245, 247, 246), .BorderStyle = BorderStyle.FixedSingle, .Width = 140, .Height = 140}
+        Private ReadOnly choosePhotoButton As New Button With {.Text = "Pilih Foto", .Width = 100, .Height = 34, .Cursor = Cursors.Hand, .FlatStyle = FlatStyle.Flat, .BackColor = Theme.Primary, .ForeColor = Color.White}
+        Private ReadOnly photoOpenDialog As New OpenFileDialog With {.Filter = "Gambar (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp", .Title = "Pilih foto alat"}
         Private request As CancellationTokenSource
         Private busy As Boolean
         Private uncertain As Boolean
         Private stale As Boolean
         Private pendingRecord As MasterRecord
         Private requestId As Guid
+        Private selectedPhotoPath As String = String.Empty
         Public ReadOnly Property SavedId As Long?
         Public ReadOnly Property SessionExpired As Boolean
         Public ReadOnly Property PendingSave As Task = Task.CompletedTask
@@ -120,6 +125,39 @@ Namespace Forms
                     AddField("Nomor telepon", phoneBox)
                     AddField("Alamat", notesBox, 90)
             End Select
+            ' Foto preview (hanya untuk jenis alat dan unit)
+            If record.Kind = MasterDataKind.EquipmentType OrElse record.Kind = MasterDataKind.EquipmentUnit Then
+                Dim photoLabel As New Label With {.Text = "Foto", .Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleLeft, .ForeColor = Theme.Text}
+                Dim photoRow As New Panel With {.Dock = DockStyle.Fill, .Padding = New Padding(4, 8, 4, 8)}
+                photoRow.Controls.Add(photoBox)
+                Dim photoBtnRow As New FlowLayoutPanel With {.Dock = DockStyle.Bottom, .Height = 34, .FlowDirection = FlowDirection.LeftToRight}
+                photoBtnRow.Controls.Add(choosePhotoButton)
+                photoRow.Controls.Add(photoBtnRow)
+                AddHandler choosePhotoButton.Click, Sub()
+                                                        If photoOpenDialog.ShowDialog(FindForm()) = DialogResult.OK Then
+                                                            selectedPhotoPath = photoOpenDialog.FileName
+                                                            Try
+                                                                Using img As Image = ImageHelper.LoadImageFromFile(selectedPhotoPath)
+                                                                    photoBox.Image = New Bitmap(img)
+                                                                End Using
+                                                            Catch
+                                                                photoBox.Image = Nothing
+                                                            End Try
+                                                        End If
+                                                    End Sub
+                ' Tampilkan foto yang sudah ada jika ada di Assets
+                Dim existingRel As String = ImageHelper.FindImageForName(record.Name)
+                If existingRel IsNot Nothing Then
+                    Dim existingImg As Image = ImageHelper.LoadFromAssets(existingRel)
+                    If existingImg IsNot Nothing Then
+                        photoBox.Image = New Bitmap(existingImg)
+                    End If
+                End If
+                fields.Controls.Add(photoLabel, 0, fields.RowCount)
+                fields.Controls.Add(photoRow, 1, fields.RowCount)
+                fields.RowCount += 1
+                fields.RowStyles.Add(New RowStyle(SizeType.Absolute, 170))
+            End If
             If record.Kind <> MasterDataKind.EquipmentUnit Then AddField("Status", activeBox, 52)
             nameBox.Text = record.Name
             codeBox.Text = record.Code
@@ -247,6 +285,19 @@ Namespace Forms
                 Try
                     Dim id = Await repository.SaveMasterAsync(requestId, pendingRecord, attempt.Token)
                     _SavedId = id
+                    ' Simpan foto yang dipilih ke folder Assets dengan nama berdasarkan alat
+                    If Not String.IsNullOrWhiteSpace(selectedPhotoPath) AndAlso File.Exists(selectedPhotoPath) Then
+                        Try
+                            Dim safeName As String = String.Concat(pendingRecord.Name.Split(Path.GetInvalidFileNameChars())).Trim()
+                            If safeName.Length = 0 Then safeName = "alat"
+                            Dim ext As String = Path.GetExtension(selectedPhotoPath)
+                            If String.IsNullOrEmpty(ext) Then ext = ".png"
+                            Dim destPath As String = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Assets"), safeName & ext)
+                            File.Copy(selectedPhotoPath, destPath, overwrite:=True)
+                        Catch
+                            ' Gagal menyalin foto tidak mencegah penyimpanan data
+                        End Try
+                    End If
                     busy = False
                     DialogResult = DialogResult.OK
                     Close()

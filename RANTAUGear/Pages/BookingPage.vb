@@ -21,7 +21,7 @@ Namespace Pages
             Me.actor = actor
             Dim layout = UiHelpers.PageLayout(Me, "Catat penyewaan alat atau paket. Tarif harian dibulatkan ke atas per 24 jam.")
             Dim toolbar As New FlowLayoutPanel With {.Dock = DockStyle.Fill}
-            Dim create As New RoundedButton With {.Text = "Buat booking", .Width = 150, .Height = 36}
+            Dim create As New RoundedButton With {.Text = "Buat booking", .Width = 150, .Height = 36, .CornerRadius = 8}
             AddHandler create.Click, Sub()
                                          Using dialog As New BookingDialog(repository, actor)
                                              If dialog.ShowDialog(Me) = DialogResult.OK Then RefreshRows()
@@ -29,10 +29,13 @@ Namespace Pages
                                      End Sub
             toolbar.Controls.Add(create)
             toolbar.Controls.Add(UiHelpers.LabelOf("Cari booking", 10, Theme.Text, False))
+            search.Height = 34
+            search.BorderStyle = BorderStyle.FixedSingle
             toolbar.Controls.Add(search)
             toolbar.Controls.Add(countLabel)
             layout.Controls.Add(toolbar, 0, 1)
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             layout.Controls.Add(grid, 0, 2)
             AddHandler search.TextChanged, Sub() RefreshRows()
             RefreshRows()

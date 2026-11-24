@@ -21,11 +21,11 @@ Namespace Pages
         Private ReadOnly fromDate As New DateTimePicker With {.Format = DateTimePickerFormat.Short, .Width = 145, .AccessibleName = "Tanggal mulai WIB"}
         Private ReadOnly toDate As New DateTimePicker With {.Format = DateTimePickerFormat.Short, .Width = 145, .AccessibleName = "Tanggal akhir WIB"}
         Private ReadOnly statusBox As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Width = 145, .AccessibleName = "Status penyewaan"}
-        Private ReadOnly loadButton As New RoundedButton With {.Text = "Tampilkan", .Width = 120, .Height = 36}
-        Private ReadOnly exportButton As New Button With {.Text = "Ekspor CSV", .Width = 120, .Height = 36, .Enabled = False}
-        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 110, .Height = 36}
-        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 110, .Height = 36}
-        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 100, .Height = 36, .Visible = False}
+        Private ReadOnly loadButton As New RoundedButton With {.Text = "Tampilkan", .Width = 120, .Height = 36, .CornerRadius = 6}
+        Private ReadOnly exportButton As New Button With {.Text = "Ekspor CSV", .Width = 120, .Height = 36, .Enabled = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text}
+        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 110, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text}
+        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 110, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text}
+        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 100, .Height = 36, .Visible = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#FEE2E4"), .ForeColor = ColorTranslator.FromHtml("#DC2626")}
         Private ReadOnly summary As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Text}
         Private ReadOnly status As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted}
         Private ReadOnly grid As New DataGridView With {.Dock = DockStyle.Fill}
@@ -60,7 +60,8 @@ Namespace Pages
                 button.Cursor = Cursors.Hand : actions.Controls.Add(button)
             Next
             layout.Controls.Add(actions, 0, 2) : layout.Controls.Add(status, 0, 3)
-            UiHelpers.StyleGrid(grid) : grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
+            UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             layout.Controls.Add(grid, 0, 4) : layout.Controls.Add(empty, 0, 4)
             grid.Visible = False : empty.Text = "Memuat laporan..."
             AddHandler kindBox.SelectedIndexChanged, Sub() FilterChanged()

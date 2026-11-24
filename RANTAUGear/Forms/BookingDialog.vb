@@ -20,7 +20,7 @@ Namespace Forms
         Private ReadOnly dueAt As New DateTimePicker With {.Format = DateTimePickerFormat.Custom, .CustomFormat = "dd MMM yyyy HH:mm", .Dock = DockStyle.Fill, .Value = DateTime.Now.AddDays(1)}
         Private ReadOnly deposit As New NumericUpDown With {.Maximum = 100000000, .ThousandsSeparator = True, .Increment = 10000, .Dock = DockStyle.Fill}
         Private ReadOnly packages As New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Dock = DockStyle.Fill}
-        Private ReadOnly units As New CheckedListBox With {.Dock = DockStyle.Fill, .CheckOnClick = True, .BorderStyle = BorderStyle.FixedSingle, .IntegralHeight = False}
+        Private ReadOnly units As New CheckedListBox With {.Dock = DockStyle.Fill, .CheckOnClick = True, .BorderStyle = BorderStyle.FixedSingle, .IntegralHeight = False, .BackColor = Theme.Card}
         Private ReadOnly summary As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Primary, .Font = New Font("Segoe UI", 11, FontStyle.Bold)}
         Private ReadOnly errorText As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Maintenance}
         Private available As New List(Of Unit)
@@ -61,8 +61,8 @@ Namespace Forms
             layout.Controls.Add(errorText, 0, 9)
             layout.SetColumnSpan(errorText, 2)
             Dim actions As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft}
-            Dim save As New RoundedButton With {.Text = "Simpan booking", .Width = 165, .Height = 38}
-            Dim cancel As New Button With {.Text = "Batal", .DialogResult = DialogResult.Cancel, .Width = 90, .Height = 38, .Cursor = Cursors.Hand}
+            Dim save As New RoundedButton With {.Text = "Simpan booking", .Width = 165, .Height = 38, .CornerRadius = 8}
+            Dim cancel As New Button With {.Text = "Batal", .DialogResult = DialogResult.Cancel, .Width = 90, .Height = 38, .Cursor = Cursors.Hand, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#F3F4F6"), .ForeColor = Theme.Text}
             actions.Controls.Add(save)
             actions.Controls.Add(cancel)
             layout.Controls.Add(actions, 0, 10)

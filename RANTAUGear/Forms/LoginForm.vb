@@ -53,16 +53,62 @@ Namespace Forms
             split.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 40))
             split.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 60))
             Controls.Add(split)
-            Dim brand As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Theme.Primary, .Padding = New Padding(42), .ColumnCount = 1, .RowCount = 4}
-            brand.RowStyles.Add(New RowStyle(SizeType.Absolute, 130))
+            Dim brand As New TableLayoutPanel With {.Dock = DockStyle.Fill, .BackColor = Theme.PrimaryDark, .Padding = New Padding(42), .ColumnCount = 2, .RowCount = 4}
+            brand.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 80))
+            brand.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
             brand.RowStyles.Add(New RowStyle(SizeType.Absolute, 80))
+            brand.RowStyles.Add(New RowStyle(SizeType.Absolute, 100))
             brand.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
             brand.RowStyles.Add(New RowStyle(SizeType.Absolute, 8))
             split.Controls.Add(brand, 0, 0)
-            brand.Controls.Add(New Label With {.Text = "RANTAU" & Environment.NewLine & "Gear Rental", .Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 26, FontStyle.Bold), .ForeColor = Color.White, .TextAlign = ContentAlignment.MiddleLeft}, 0, 0)
-            brand.Controls.Add(New Label With {.Text = "Rental alat outdoor dan" & Environment.NewLine & "dokumentasi", .Dock = DockStyle.Fill, .Font = New Font("Segoe UI", 13), .ForeColor = Color.FromArgb(230, 245, 238)}, 0, 1)
-            brand.Controls.Add(New Label With {.Text = "Akses petugas toko" & Environment.NewLine & Environment.NewLine & "Masuk dengan email akun Supabase." & Environment.NewLine & "Koneksi internet diperlukan.", .Dock = DockStyle.Fill, .TextAlign = ContentAlignment.TopLeft, .Padding = New Padding(0, 24, 0, 0), .ForeColor = Color.White}, 0, 2)
+
+            ' Logo
+            Dim logoPic As New PictureBox With {.Dock = DockStyle.Fill, .SizeMode = PictureBoxSizeMode.Zoom, .BackColor = Color.Transparent}
+            logoPic.Image = ImageHelper.LoadBrandLogo(80, 80)
+            brand.Controls.Add(logoPic, 0, 0)
+            brand.SetRowSpan(logoPic, 2)
+
+            ' Brand text
+            Dim brandText As New Label With {
+                .Text = "RANTAU" & Environment.NewLine & "Gear Rental",
+                .Dock = DockStyle.Fill,
+                .Font = New Font("Segoe UI", 18, FontStyle.Bold),
+                .ForeColor = Color.White,
+                .TextAlign = ContentAlignment.MiddleLeft,
+                .Padding = New Padding(16, 0, 0, 0),
+                .AutoSize = False
+            }
+            brand.Controls.Add(brandText, 1, 0)
+            brand.SetRowSpan(brandText, 1)
+
+            ' Subtitle
+            Dim subtitle As New Label With {
+                .Text = "Rental alat outdoor dan dokumentasi",
+                .Dock = DockStyle.Fill,
+                .Font = New Font("Segoe UI", 12),
+                .ForeColor = Color.FromArgb(200, 220, 212),
+                .TextAlign = ContentAlignment.TopLeft,
+                .Padding = New Padding(16, 0, 0, 0),
+                .AutoSize = False
+            }
+            brand.Controls.Add(subtitle, 1, 1)
+
+            ' Description
+            brand.Controls.Add(New Label With {
+                .Text = "Akses petugas toko" & Environment.NewLine & Environment.NewLine &
+                        "Masuk dengan email akun Supabase." & Environment.NewLine &
+                        "Koneksi internet diperlukan.",
+                .Dock = DockStyle.Fill,
+                .TextAlign = ContentAlignment.TopLeft,
+                .Padding = New Padding(0, 24, 0, 0),
+                .ForeColor = Color.White,
+                .AutoSize = False
+            }, 0, 2)
+            brand.SetColumnSpan(brand.Controls(brand.Controls.Count - 1), 2)
+
+            ' Accent bar
             brand.Controls.Add(New Panel With {.BackColor = Theme.Accent, .Width = 75, .Height = 6, .Anchor = AnchorStyles.Left Or AnchorStyles.Bottom}, 0, 3)
+            brand.SetColumnSpan(brand.Controls(brand.Controls.Count - 1), 2)
             Dim right As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 3, .RowCount = 1}
             right.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
             right.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 420))

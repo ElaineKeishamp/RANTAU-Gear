@@ -4,6 +4,7 @@ Option Infer On
 
 Imports System
 Imports System.Drawing
+Imports System.IO
 Imports System.Linq
 Imports System.Windows.Forms
 Imports RantauGear.Data
@@ -17,6 +18,7 @@ Namespace Pages
         Private ReadOnly grid As New DataGridView()
         Private ReadOnly searchBox As New TextBox()
         Private ReadOnly resultLabel As New Label With {.AutoSize = True, .ForeColor = Theme.Muted, .Padding = New Padding(8, 5, 0, 0)}
+        Private ReadOnly folderOpenDialog As New OpenFileDialog With {.Filter = "Gambar (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp", .Title = "Pilih foto unit"}
         Public Sub New(repository As IRentalRepository)
             Me.repository = repository
             BuildUI()
@@ -43,6 +45,9 @@ Namespace Pages
             AddHandler searchBox.TextChanged, Sub(sender As Object, e As EventArgs) RefreshGrid()
             tools.Controls.Add(UiHelpers.LabelOf("Cari unit", 10, Theme.Text, False))
             tools.Controls.Add(searchBox)
+            Dim addImageButton As New RoundedButton With {.Text = "Tambah Gambar", .Width = 120, .Height = 34, .CornerRadius = 6}
+            AddHandler addImageButton.Click, AddressOf TambahGambar
+            tools.Controls.Add(addImageButton)
             Dim maintenance As New RoundedButton With {.Text = "Set Maintenance", .Width = 145, .Height = 34, .NormalColor = Theme.Maintenance}
             AddHandler maintenance.Click, AddressOf SetMaintenance
             tools.Controls.Add(maintenance)
@@ -81,6 +86,25 @@ Namespace Pages
             item.Status = UnitStatus.Ready
             repository.UpdateUnit(item)
             RefreshGrid()
+        End Sub
+        Private Sub TambahGambar(sender As Object, e As EventArgs)
+            If folderOpenDialog.ShowDialog(FindForm()) <> DialogResult.OK Then Return
+            Dim item As Unit = SelectedUnit()
+            If item Is Nothing Then
+                MessageBox.Show("Pilih unit terlebih dahulu dari daftar.", "Tambah Gambar", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                Return
+            End If
+            Try
+                Dim safeName As String = String.Concat(item.Code.Split(Path.GetInvalidFileNameChars())).Trim()
+                If safeName.Length = 0 Then safeName = "unit"
+                Dim ext As String = Path.GetExtension(folderOpenDialog.FileName)
+                If String.IsNullOrEmpty(ext) Then ext = ".png"
+                Dim destPath As String = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Assets"), safeName & ext)
+                File.Copy(folderOpenDialog.FileName, destPath, overwrite:=True)
+                MessageBox.Show("Foto berhasil disimpan untuk unit " & item.Name, "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Catch ex As Exception
+                MessageBox.Show("Gagal menyimpan foto: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            End Try
         End Sub
         Private Function CanChangeStatus(item As Unit) As Boolean
             If repository.GetRentals().Any(Function(r) (r.Status = RentalStatus.Active OrElse r.Status = RentalStatus.Late) AndAlso r.Items.Any(Function(i) i.UnitId = item.Id)) Then

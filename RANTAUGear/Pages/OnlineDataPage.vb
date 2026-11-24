@@ -24,11 +24,11 @@ Namespace Pages
         Private ReadOnly status As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted}
         Private ReadOnly grid As New DataGridView With {.Dock = DockStyle.Fill}
         Private ReadOnly empty As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted, .TextAlign = ContentAlignment.MiddleCenter}
-        Private ReadOnly reload As New RoundedButton With {.Text = "Muat ulang", .Width = 120, .Height = 36}
-        Private ReadOnly first As New Button With {.Text = "Awal", .Width = 65, .Height = 36}
-        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 100, .Height = 36}
-        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 100, .Height = 36}
-        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 95, .Height = 36, .Visible = False}
+        Private ReadOnly reload As New RoundedButton With {.Text = "Muat ulang", .Width = 120, .Height = 36, .CornerRadius = 6}
+        Private ReadOnly first As New Button With {.Text = "Awal", .Width = 65, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 100, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 100, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 95, .Height = 36, .Visible = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#FEE2E4"), .ForeColor = ColorTranslator.FromHtml("#DC2626"), .Cursor = Cursors.Hand}
         Private activeRequest As CancellationTokenSource
         Private loaded As RepositoryPage
         Private loading As Boolean
@@ -60,7 +60,9 @@ Namespace Pages
             Controls.Add(layout)
             description.Text = "Data akan dibaca dari Supabase."
             layout.Controls.Add(description, 0, 0)
-            Dim toolbar As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .WrapContents = False}
+
+            ' Search dan filter toolbar
+            Dim toolbar As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .WrapContents = False, .Padding = New Padding(0, 6, 0, 0)}
             For Each button As Button In New Button() {reload, first, previous, following, cancel}
                 button.Cursor = Cursors.Hand
                 toolbar.Controls.Add(button)
@@ -68,6 +70,7 @@ Namespace Pages
             layout.Controls.Add(toolbar, 0, 1)
             layout.Controls.Add(status, 0, 2)
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             layout.Controls.Add(grid, 0, 3)
             layout.Controls.Add(empty, 0, 3)
             grid.Visible = False

@@ -27,7 +27,7 @@ Namespace Pages
             toolbar.Controls.Add(fromDate)
             toolbar.Controls.Add(UiHelpers.LabelOf("Sampai", 10, Theme.Text, False))
             toolbar.Controls.Add(toDate)
-            Dim export As New RoundedButton With {.Text = "Ekspor CSV", .Width = 130, .Height = 36}
+            Dim export As New RoundedButton With {.Text = "Ekspor CSV", .Width = 130, .Height = 36, .CornerRadius = 8}
             toolbar.Controls.Add(export)
             layout.Controls.Add(toolbar, 0, 1)
             Dim content As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 2}
@@ -36,6 +36,7 @@ Namespace Pages
             content.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
             content.Controls.Add(totals, 0, 0)
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             content.Controls.Add(grid, 0, 1)
             layout.Controls.Add(content, 0, 2)
             AddHandler fromDate.ValueChanged, Sub() RefreshRows()

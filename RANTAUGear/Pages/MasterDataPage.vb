@@ -3,6 +3,7 @@ Option Explicit On
 Option Infer On
 Imports System.Data
 Imports System.Drawing
+Imports System.IO
 Imports System.Threading
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
@@ -53,16 +54,19 @@ Namespace Pages
         Implements IWorkspacePage
         Private ReadOnly repository As IRentalRepository
         Private ReadOnly kind As MasterDataKind
-        Private ReadOnly grid As New DataGridView With {.Dock = DockStyle.Fill}
+        Private ReadOnly flow As New FlowLayoutPanel With {.AutoScroll = True, .Dock = DockStyle.Fill, .BackColor = Theme.Background, .FlowDirection = FlowDirection.LeftToRight, .WrapContents = True, .Padding = New Padding(10)}
         Private ReadOnly status As New Label With {.Dock = DockStyle.Fill, .ForeColor = Theme.Muted}
         Private ReadOnly empty As New Label With {.Dock = DockStyle.Fill, .TextAlign = ContentAlignment.MiddleCenter, .ForeColor = Theme.Muted}
-        Private ReadOnly addButton As New RoundedButton With {.Text = "Tambah", .Width = 110, .Height = 36}
-        Private ReadOnly editButton As New Button With {.Text = "Edit pilihan", .Width = 110, .Height = 36}
-        Private ReadOnly reload As New Button With {.Text = "Muat ulang", .Width = 110, .Height = 36}
-        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 100, .Height = 36}
-        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 100, .Height = 36}
-        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 95, .Height = 36, .Visible = False}
+        Private ReadOnly addButton As New RoundedButton With {.Text = "Tambah", .Width = 110, .Height = 36, .CornerRadius = 6}
+        Private ReadOnly editButton As New Button With {.Text = "Edit pilihan", .Width = 110, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand, .Enabled = False}
+        Private ReadOnly reload As New Button With {.Text = "Muat ulang", .Width = 110, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly previous As New Button With {.Text = "Sebelumnya", .Width = 100, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly following As New Button With {.Text = "Berikutnya", .Width = 100, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand}
+        Private ReadOnly cancel As New Button With {.Text = "Batalkan", .Width = 95, .Height = 36, .Visible = False, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#FEE2E4"), .ForeColor = ColorTranslator.FromHtml("#DC2626"), .Cursor = Cursors.Hand}
         Private records As New List(Of MasterRecord)()
+        Private selectedRecord As MasterRecord = Nothing
+        Private ReadOnly photoDialog As New OpenFileDialog With {.Filter = "Gambar (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp", .Title = "Pilih foto alat"}
+        Private ReadOnly addPhotoButton As New Button With {.Text = "Tambah Gambar", .Width = 120, .Height = 36, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#E5E7EB"), .ForeColor = Theme.Text, .Cursor = Cursors.Hand, .Enabled = False}
         Private offset As Integer
         Private total As Long
         Private busy As Boolean
@@ -73,6 +77,7 @@ Namespace Pages
         Public Sub New(repository As IRentalRepository, kind As MasterDataKind)
             Me.repository = repository
             Me.kind = kind
+            addPhotoButton.Enabled = (kind = MasterDataKind.Category OrElse kind = MasterDataKind.EquipmentType)
             Dock = DockStyle.Fill
             Padding = New Padding(20, 16, 20, 20)
             BackColor = Theme.Background
@@ -84,30 +89,41 @@ Namespace Pages
             Controls.Add(layout)
             layout.Controls.Add(New Label With {.Text = "Kelola " & MasterEditDialog.KindName(kind) & " di Supabase. Data yang sudah dipakai tetap disimpan; gunakan status nonaktif jika tidak digunakan lagi.", .Dock = DockStyle.Fill, .ForeColor = Theme.Muted}, 0, 0)
             Dim toolbar As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .WrapContents = True}
-            For Each button As Button In New Button() {addButton, editButton, reload, previous, following, cancel}
+            For Each button As Button In New Button() {addButton, editButton, addPhotoButton, reload, previous, following, cancel}
                 button.Cursor = Cursors.Hand
                 toolbar.Controls.Add(button)
             Next
             layout.Controls.Add(toolbar, 0, 1)
             layout.Controls.Add(status, 0, 2)
-            UiHelpers.StyleGrid(grid)
-            layout.Controls.Add(grid, 0, 3)
+            layout.Controls.Add(flow, 0, 3)
             layout.Controls.Add(empty, 0, 3)
-            grid.Visible = False
+            flow.Visible = False
             empty.Text = "Memuat data..."
             AddHandler reload.Click, Sub() StartLoad(offset)
             AddHandler previous.Click, Sub() StartLoad(Math.Max(0, offset - 25))
             AddHandler following.Click, Sub() StartLoad(offset + 25)
             AddHandler addButton.Click, Sub() StartEdit(New MasterRecord With {.Kind = kind})
             AddHandler editButton.Click, Sub()
-                                            If grid.CurrentRow Is Nothing Then Return
-                                            Dim id = CLng(grid.CurrentRow.Cells("Id").Value)
-                                            StartEdit(records.Single(Function(record) record.Id.HasValue AndAlso record.Id.Value = id).Copy())
-                                        End Sub
-            AddHandler cancel.Click, Sub() activeRequest?.Cancel()
-            AddHandler grid.SelectionChanged, Sub()
-                                                  If Not busy Then editButton.Enabled = grid.CurrentRow IsNot Nothing
+                                              If selectedRecord Is Nothing Then Return
+                                              StartEdit(selectedRecord.Copy())
+                                          End Sub
+            AddHandler addPhotoButton.Click, Sub()
+                                                  If selectedRecord Is Nothing Then Return
+                                                  If photoDialog.ShowDialog(FindForm()) = DialogResult.OK Then
+                                                      Try
+                                                          Dim safeName As String = String.Concat(selectedRecord.Name.Split(Path.GetInvalidFileNameChars())).Trim()
+                                                          If safeName.Length = 0 Then safeName = "alat"
+                                                          Dim ext As String = Path.GetExtension(photoDialog.FileName)
+                                                          If String.IsNullOrEmpty(ext) Then ext = ".png"
+                                                          Dim destPath As String = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Assets"), safeName & ext)
+                                                          File.Copy(photoDialog.FileName, destPath, overwrite:=True)
+                                                          BindRows()
+                                                      Catch ex As Exception
+                                                          MessageBox.Show("Gagal menyimpan foto: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                                                      End Try
+                                                  End If
                                               End Sub
+            AddHandler cancel.Click, Sub() activeRequest?.Cancel()
             SetBusy(False)
         End Sub
 
@@ -147,49 +163,148 @@ Namespace Pages
         End Function
 
         Private Sub BindRows()
-            Dim table As New DataTable With {.Locale = Globalization.CultureInfo.GetCultureInfo("id-ID")}
-            table.Columns.Add("Id", GetType(Long))
-            Select Case kind
-                Case MasterDataKind.Category
-                    table.Columns.Add("Nama") : table.Columns.Add("Status")
-                    For Each item In records
-                        table.Rows.Add(item.Id.Value, item.Name, If(item.IsActive, "Aktif", "Nonaktif"))
-                    Next
-                Case MasterDataKind.EquipmentType
-                    table.Columns.Add("Nama") : table.Columns.Add("Kategori") : table.Columns.Add("Tarif / hari", GetType(Decimal)) : table.Columns.Add("Nilai penggantian", GetType(Decimal)) : table.Columns.Add("Status")
-                    For Each item In records
-                        table.Rows.Add(item.Id.Value, item.Name, item.ParentName, item.DailyRate, item.ReplacementValue, If(item.IsActive, "Aktif", "Nonaktif"))
-                    Next
-                Case MasterDataKind.EquipmentUnit
-                    table.Columns.Add("Kode") : table.Columns.Add("Jenis alat") : table.Columns.Add("Kondisi") : table.Columns.Add("Catatan")
-                    For Each item In records
-                        table.Rows.Add(item.Id.Value, item.Code, item.ParentName, MasterEditDialog.StateName(item.State), item.Notes)
-                    Next
-                Case MasterDataKind.Package
-                    table.Columns.Add("Nama") : table.Columns.Add("Tarif / hari", GetType(Decimal)) : table.Columns.Add("Isi") : table.Columns.Add("Status")
-                    For Each item In records
-                        table.Rows.Add(item.Id.Value, item.Name, item.DailyRate, item.Components.Count.ToString() & " jenis alat", If(item.IsActive, "Aktif", "Nonaktif"))
-                    Next
-                Case MasterDataKind.Customer
-                    table.Columns.Add("Nama") : table.Columns.Add("Telepon") : table.Columns.Add("Alamat") : table.Columns.Add("Status")
-                    For Each item In records
-                        table.Rows.Add(item.Id.Value, item.Name, item.Phone, item.Address, If(item.IsActive, "Aktif", "Nonaktif"))
-                    Next
-            End Select
-            Dim old = TryCast(grid.DataSource, DataTable)
-            grid.DataSource = table
-            old?.Dispose()
-            grid.Columns("Id").Visible = False
-            For Each column As DataGridViewColumn In grid.Columns
-                If column.ValueType Is GetType(Decimal) Then
-                    column.DefaultCellStyle.Format = "C0"
-                    column.DefaultCellStyle.FormatProvider = table.Locale
-                End If
+            flow.Controls.Clear()
+            selectedRecord = Nothing
+            editButton.Enabled = False
+            Dim needsFoto As Boolean = kind = MasterDataKind.Category OrElse kind = MasterDataKind.EquipmentType
+            For Each item In records
+                flow.Controls.Add(CreateRecordCard(item, needsFoto))
             Next
-            grid.Visible = records.Count > 0
-            empty.Visible = Not grid.Visible
+            flow.Visible = records.Count > 0
+            empty.Visible = Not flow.Visible
             empty.Text = "Belum ada " & MasterEditDialog.KindName(kind) & ". Klik Tambah untuk mencatat data pertama."
         End Sub
+
+        Private Function CreateRecordCard(item As MasterRecord, needsFoto As Boolean) As Panel
+            Dim card As New Panel With {
+                .Size = New Size(260, 300),
+                .BackColor = Theme.Card,
+                .Margin = New Padding(10),
+                .Cursor = Cursors.Hand,
+                .Tag = item
+            }
+
+            Dim photoBox As PictureBox = Nothing
+            If needsFoto Then
+                Dim foto As Image = ImageHelper.LoadImageForName(item.Name, New Size(140, 140))
+                photoBox = New PictureBox With {
+                    .SizeMode = PictureBoxSizeMode.Zoom,
+                    .BackColor = Color.FromArgb(245, 247, 246),
+                    .BorderStyle = BorderStyle.FixedSingle,
+                    .Size = New Size(140, 140),
+                    .Location = New Point(60, 16),
+                    .Image = If(foto, ImageHelper.CreatePlaceholder(New Size(140, 140))),
+                    .Cursor = Cursors.Hand
+                }
+                card.Controls.Add(photoBox)
+            End If
+            Dim nameLabel As New Label With {
+                .Text = item.Name,
+                .Font = New Font("Segoe UI", 12, FontStyle.Bold),
+                .ForeColor = Theme.Text,
+                .AutoSize = False,
+                .Size = New Size(200, 26),
+                .Location = New Point(30, 168),
+                .TextAlign = ContentAlignment.MiddleCenter,
+                .Cursor = Cursors.Hand
+            }
+            Dim infoLabel As New Label With {
+                .Text = GetCardInfo(item),
+                .Font = New Font("Segoe UI", 9),
+                .ForeColor = Theme.Muted,
+                .AutoSize = False,
+                .Size = New Size(200, 44),
+                .Location = New Point(30, 196),
+                .TextAlign = ContentAlignment.MiddleCenter,
+                .Cursor = Cursors.Hand
+            }
+            Dim statusLabel As New Label With {
+                .Text = GetStatusText(item),
+                .Font = New Font("Segoe UI", 9, FontStyle.Bold),
+                .ForeColor = If(item.IsActive, Theme.ReadyText, Theme.Maintenance),
+                .AutoSize = False,
+                .Size = New Size(200, 20),
+                .Location = New Point(30, 244),
+                .TextAlign = ContentAlignment.MiddleCenter,
+                .Cursor = Cursors.Hand
+            }
+            card.Controls.Add(nameLabel)
+            card.Controls.Add(infoLabel)
+            card.Controls.Add(statusLabel)
+
+            ' Selection handler yang dipanggil dari card maupun child control
+            Dim doSelect As New Action(Sub()
+                                           selectedRecord = item
+                                           editButton.Enabled = True
+                                           For Each ctrl As Control In flow.Controls
+                                               If TypeOf ctrl Is Panel Then
+                                                   ctrl.BackColor = If(ctrl Is card, ColorTranslator.FromHtml("#E8F5EE"), Theme.Card)
+                                               End If
+                                           Next
+                                       End Sub)
+
+            AddHandler card.Click, Sub() doSelect()
+            If photoBox IsNot Nothing Then AddHandler photoBox.Click, Sub() doSelect()
+            AddHandler nameLabel.Click, Sub() doSelect()
+            AddHandler infoLabel.Click, Sub() doSelect()
+            AddHandler statusLabel.Click, Sub() doSelect()
+
+            ' Double-klik foto -> buka dialog ganti gambar
+            If photoBox IsNot Nothing Then
+            AddHandler photoBox.DoubleClick, Sub()
+                                                 If photoDialog.ShowDialog(FindForm()) = DialogResult.OK Then
+                                                     Try
+                                                         Dim safeName As String = String.Concat(item.Name.Split(Path.GetInvalidFileNameChars())).Trim()
+                                                         If safeName.Length = 0 Then safeName = "alat"
+                                                         Dim ext As String = Path.GetExtension(photoDialog.FileName)
+                                                         If String.IsNullOrEmpty(ext) Then ext = ".png"
+                                                         Dim destPath As String = Path.Combine(Path.Combine(AppContext.BaseDirectory, "Assets"), safeName & ext)
+                                                         File.Copy(photoDialog.FileName, destPath, overwrite:=True)
+                                                         Using img As Image = ImageHelper.LoadImageFromFile(destPath)
+                                                             photoBox.Image = New Bitmap(img)
+                                                         End Using
+                                                     Catch ex As Exception
+                                                         MessageBox.Show("Gagal menyimpan foto: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                                                     End Try
+                                                 End If
+                                             End Sub
+            End If
+
+            AddHandler card.Paint, Sub(s As Object, e As PaintEventArgs)
+                                       Using pen As New Pen(Theme.BorderLight, 1)
+                                           e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1)
+                                       End Using
+                                   End Sub
+            Return card
+        End Function
+
+        Private Function GetCardInfo(item As MasterRecord) As String
+            Select Case kind
+                Case MasterDataKind.Category
+                    Return If(item.IsActive, "Aktif", "Nonaktif")
+                Case MasterDataKind.EquipmentType
+                    Return String.Format("Kategori: {0} | Tarif: {1}", item.ParentName, UiHelpers.Currency(item.DailyRate))
+                Case MasterDataKind.EquipmentUnit
+                    Return String.Format("Kode: {0} | {1}", item.Code, MasterEditDialog.StateName(item.State))
+                Case MasterDataKind.Package
+                    Return String.Format("Tarif: {0} | {1} jenis alat", UiHelpers.Currency(item.DailyRate), item.Components.Count)
+                Case MasterDataKind.Customer
+                    Return String.Format("Telp: {0}", item.Phone)
+                Case Else
+                    Return String.Empty
+            End Select
+        End Function
+
+        Private Function GetStatusText(item As MasterRecord) As String
+            Select Case kind
+                Case MasterDataKind.Category, MasterDataKind.EquipmentType, MasterDataKind.Package, MasterDataKind.Customer
+                    Return If(item.IsActive, "Aktif", "Nonaktif")
+                Case MasterDataKind.EquipmentUnit
+                    Return MasterEditDialog.StateName(item.State)
+                Case Else
+                    Return String.Empty
+            End Select
+        End Function
 
         Private Async Sub StartEdit(record As MasterRecord)
             If busy OrElse IsDisposed Then Return
@@ -253,7 +368,8 @@ Namespace Pages
         Private Sub SetBusy(value As Boolean)
             busy = value
             addButton.Enabled = Not value
-            editButton.Enabled = Not value AndAlso grid.CurrentRow IsNot Nothing
+            editButton.Enabled = Not value AndAlso selectedRecord IsNot Nothing
+            addPhotoButton.Enabled = Not value AndAlso selectedRecord IsNot Nothing AndAlso (kind = MasterDataKind.Category OrElse kind = MasterDataKind.EquipmentType)
             reload.Enabled = Not value
             previous.Enabled = Not value AndAlso offset > 0
             following.Enabled = Not value AndAlso offset <= Integer.MaxValue - 25 AndAlso offset + records.Count < total
@@ -262,7 +378,6 @@ Namespace Pages
         Protected Overrides Sub Dispose(disposing As Boolean)
             If disposing Then
                 activeRequest?.Cancel()
-                TryCast(grid.DataSource, DataTable)?.Dispose()
             End If
             MyBase.Dispose(disposing)
         End Sub

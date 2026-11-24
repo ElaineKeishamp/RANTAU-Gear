@@ -19,10 +19,20 @@
     <Folder Include="My Project\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="PDFsharp-GDI" Version="6.2.4" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(Configuration)' == 'Debug' And Exists('../supabase.local.json')">
     <Content Include="../supabase.local.json" Link="supabase.local.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <RuntimeHostConfigurationOption Include="RantauGear.ExportDirectory" Value="Laporan" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

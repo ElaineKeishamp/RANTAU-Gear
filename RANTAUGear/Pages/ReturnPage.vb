@@ -14,7 +14,7 @@ Namespace Pages
         Private ReadOnly repository As IRentalRepository
         Private ReadOnly actor As AppUser
         Private ReadOnly grid As New DataGridView With {.Dock = DockStyle.Fill}
-        Private ReadOnly process As New RoundedButton With {.Text = "Periksa & kembalikan", .Width = 200, .Height = 36}
+        Private ReadOnly process As New RoundedButton With {.Text = "Periksa & kembalikan", .Width = 200, .Height = 36, .CornerRadius = 8}
         Private ReadOnly countLabel As New Label With {.AutoSize = True, .Padding = New Padding(8), .ForeColor = Theme.Muted}
         Public Sub New(repository As IRentalRepository, actor As AppUser)
             Me.repository = repository
@@ -25,6 +25,7 @@ Namespace Pages
             toolbar.Controls.Add(countLabel)
             layout.Controls.Add(toolbar, 0, 1)
             UiHelpers.StyleGrid(grid)
+            UiHelpers.ApplyColumnAlignments(grid)
             layout.Controls.Add(grid, 0, 2)
             AddHandler process.Click, Sub()
                                           If grid.CurrentRow Is Nothing Then Return

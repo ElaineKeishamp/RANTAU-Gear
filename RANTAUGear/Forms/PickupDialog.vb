@@ -21,8 +21,8 @@ Namespace Forms
         Private ReadOnly referenceBox As New TextBox With {.Width = 260, .MaxLength = 200, .AccessibleName = "Referensi pembayaran"}
         Private ReadOnly moneyConfirmed As New CheckBox With {.Text = "Pelunasan sisa sewa dan deposit sesuai ringkasan sudah diterima", .Dock = DockStyle.Fill}
         Private ReadOnly unitsConfirmed As New CheckBox With {.Text = "Unit yang dipilih sudah diperiksa dan siap diserahkan", .Dock = DockStyle.Fill}
-        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan pengambilan", .Width = 205, .Height = 38, .Enabled = False}
-        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 100, .Height = 38}
+        Private ReadOnly saveButton As New RoundedButton With {.Text = "Simpan pengambilan", .Width = 205, .Height = 38, .Enabled = False, .CornerRadius = 8}
+        Private ReadOnly closeButton As New Button With {.Text = "Batal", .Width = 100, .Height = 38, .FlatStyle = FlatStyle.Flat, .BackColor = ColorTranslator.FromHtml("#F3F4F6"), .ForeColor = Theme.Text}
         Private ReadOnly message As New Label With {.Dock = DockStyle.Fill, .Padding = New Padding(18, 0, 18, 0), .ForeColor = Theme.Muted}
         Private activeRequest As CancellationTokenSource
         Private busy As Boolean
@@ -35,6 +35,16 @@ Namespace Forms
         Public ReadOnly Property PendingOperation As Task = Task.CompletedTask
         Public ReadOnly Property Receipt As PickupReceipt
         Public ReadOnly Property SessionExpired As Boolean
+        Public ReadOnly Property SavedUnitIds As List(Of Long)
+            Get
+                Return selectedUnits
+            End Get
+        End Property
+        Public ReadOnly Property PaymentMethod As String
+            Get
+                Return selectedMethod
+            End Get
+        End Property
         Public Sub New(repository As IRentalRepository, details As PickupDetails)
             Me.repository = repository : Me.details = details
             Text = "Pengambilan alat | RANTAU Gear"
